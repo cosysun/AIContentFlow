@@ -267,6 +267,143 @@ pip install -r config/requirements.txt --upgrade
 
 ---
 
+## 🤖 For AI Agent
+
+### 如果你是新的AI Agent实例
+
+欢迎！这个项目是为AI Agent设计的内容创作自动化系统。为了快速上手并正确执行工作流，请按以下顺序阅读文档：
+
+#### 📚 必读文档（总共约50分钟）
+
+1. **[FOR_AI_AGENT.md](./docs/FOR_AI_AGENT.md)** - AI Agent专用指南 ⭐⭐⭐⭐⭐
+   - 用途：整体概览和快速上手
+   - 阅读时间：5分钟
+   - 重要性：必读
+
+2. **[WORKFLOW_SOP.md](./docs/WORKFLOW_SOP.md)** - 工作流标准操作流程 ⭐⭐⭐⭐⭐
+   - 用途：详细的执行步骤和检查清单
+   - 阅读时间：20分钟
+   - 重要性：必读
+
+3. **[DECISION_TREE.md](./docs/DECISION_TREE.md)** - 决策树与用户交互逻辑 ⭐⭐⭐⭐⭐
+   - 用途：不同用户输入下的决策逻辑
+   - 阅读时间：10分钟
+   - 重要性：必读
+
+4. **[PROMPT_TEMPLATES.md](./docs/PROMPT_TEMPLATES.md)** - Prompt模板库 ⭐⭐⭐⭐
+   - 用途：标准化各阶段的Prompt
+   - 阅读时间：15分钟
+   - 重要性：推荐
+
+5. **[EXAMPLE_CONVERSATION.md](./docs/EXAMPLE_CONVERSATION.md)** - 示例对话 ⭐⭐⭐
+   - 用途：实际对话示例
+   - 阅读时间：10分钟
+   - 重要性：有助于理解
+
+#### ⚡ 快速启动
+
+如果用户说"**执行AIContentFlow热点监控任务**"，你应该：
+
+```python
+# 1. 执行监控脚本
+terminal("cd /data/workspace/AIContentFlow/monitor && python3 aicontentflow_monitor.py")
+
+# 2. 读取报告
+read_file("/data/workspace/AIContentFlow/outputs/topic_monitor_report.md")
+
+# 3. 提取Top 5选题
+
+# 4. 使用notify推送给用户
+notify(
+    title="📊 AIContentFlow热点监控完成 - 请选择创作主题",
+    message="[Top 5选题列表]"
+)
+
+# 5. 等待用户回复（1-5 或 "等明天"）
+# ⚠️ 不要自动进入下一步骤！
+```
+
+#### ⚠️ 关键注意事项
+
+1. **主动推送** - 所有关键节点必须使用`notify`工具
+2. **等待确认** - 涉及用户决策的步骤必须等待回复
+3. **保存备份** - 每个阶段的输出都要保存到`.draft/日期/`
+4. **事实准确** - 所有数据必须有来源，不确定的信息必须标注
+5. **工具调用** - 优先使用项目内的脚本（如`aicontentflow_monitor.py`）
+6. **风格一致** - 配图风格：赛博朋克科技风，语言风格：专业但不晦涩
+
+#### 📂 项目结构
+
+```
+/data/workspace/AIContentFlow/     # 项目主目录
+├── monitor/                       # 热点监控模块
+├── writer/                        # 内容创作模块
+├── config/                        # 配置文件
+├── outputs/                       # 输出结果
+├── docs/                          # 📚 你现在应该读的文档
+├── .env                           # 环境变量（包含API Key）
+└── .draft/                        # 暂存目录（临时文件）
+
+/data/workspace/.draft/            # 创作暂存区
+└── YYYY-MM-DD/                   # 按日期组织
+    ├── article_draft.md          # 初稿
+    ├── article_final.md          # 最终版
+    ├── titles.md                 # 标题方案
+    ├── research_notes.md         # 调研资料
+    └── context.json              # 上下文信息（用于恢复）
+
+/data/workspace/AI-Content-Archive/  # 内容归档区
+└── YYYY/MM/DD-文章标题/          # 已发布内容
+```
+
+#### 🎯 核心工作流
+
+AIContentFlow有6大工作流，最重要的是：
+
+1. **热点监控** - 每天07:00自动执行（或手动触发）
+2. **内容创作（八段式）** - 用户选择选题后启动
+   - 阶段1：确认选题和创作目标
+   - 阶段2：深度调研（≥15个信息源）
+   - 阶段3：内容创作（3000-10000字）
+   - 阶段4：第一遍审校 - 事实核查
+   - 阶段5：第二遍审校 - 降AI味
+   - 阶段6：第三遍审校 - 排版润色
+   - 阶段7：标题创作（20个方案）
+   - 阶段8：最终审阅与暂存
+
+**每个阶段结束后必须等待用户确认，不要一口气做完所有步骤！**
+
+#### 💡 常见场景
+
+| 用户说 | 你应该做 |
+|--------|----------|
+| "执行AIContentFlow热点监控任务" | 执行monitor脚本 → notify推送Top 5 → 等待回复 |
+| "1"（或其他数字1-5） | 提取选题 → 展示创作规划 → 等待"确认" |
+| "确认" | 开始对应阶段 → 完成后等待"继续" |
+| "继续" | 进入下一阶段 → 完成后再次等待 |
+| "查看进度" | 读取context.json → 展示当前进度 |
+| "等明天" | notify确认跳过 → 等待明天07:00自动触发 |
+
+#### 🚫 常见错误
+
+- ❌ 忘记用notify推送 → ✅ 每个关键节点都用notify
+- ❌ 不等待用户确认就继续 → ✅ 每个阶段结束明确提示用户并等待
+- ❌ 数据不验证就使用 → ✅ 使用terminal实时查询验证
+- ❌ AI腔严重 → ✅ 阶段5专门降AI味
+- ❌ 忘记保存中间文件 → ✅ 每个阶段都保存到.draft/
+
+#### 🔗 需要帮助？
+
+- 阅读 **[FOR_AI_AGENT.md](./docs/FOR_AI_AGENT.md)** 获取完整指南
+- 查看 **[EXAMPLE_CONVERSATION.md](./docs/EXAMPLE_CONVERSATION.md)** 了解实际对话示例
+- 遇到问题时参考 **[WORKFLOW_SOP.md](./docs/WORKFLOW_SOP.md)** 的异常处理章节
+
+---
+
+**准备好了吗？开始阅读文档，然后等待用户说"执行AIContentFlow热点监控任务"！** 🚀
+
+---
+
 ## 📈 输出示例
 
 ### 热点监控报告
