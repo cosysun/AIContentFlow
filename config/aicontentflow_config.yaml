@@ -1,0 +1,76 @@
+# AIContentFlow 主配置文件
+# Project: AIContentFlow - AI-Driven Content Generation Pipeline
+# Version: 1.0.0
+# Updated: 2026-02-21
+
+project:
+  name: AIContentFlow
+  version: 1.0.0
+  description: "自动化AI内容生成流水线 - 从热点监控到内容发布的全流程自动化系统"
+
+schedule:
+  monitor_time: "07:00"  # 热点监控时间
+  writer_time: "08:00"   # 内容生成时间
+  timezone: "Asia/Shanghai"
+
+monitor:
+  topic_count: 5  # 每日推荐选题数量
+  sources:
+    - name: "HackerNews"
+      enabled: true
+      weight: 1.0
+    - name: "ProductHunt"
+      enabled: true
+      weight: 0.8
+    - name: "GitHub Trending"
+      enabled: true
+      weight: 1.2
+    - name: "arXiv"
+      enabled: true
+      weight: 0.9
+    - name: "TechCrunch"
+      enabled: true
+      weight: 0.7
+    - name: "Brave Search"
+      enabled: true
+      weight: 0.6
+
+scorer:
+  min_score: 60  # 最低分数要求
+  weights:
+    innovation: 0.3
+    impact: 0.3
+    timeliness: 0.2
+    authority: 0.2
+
+writer:
+  min_sources: 3  # 最少信息源数量
+  min_words: 3000  # 最少字数
+  max_words: 8000  # 最多字数
+  output_format: "markdown"
+
+publisher:
+  auto_publish: false  # 是否自动发布（需人工确认）
+  github_repo: "AI-Content-Archive"
+  archive_path: "/data/workspace/AI-Content-Archive"
+
+paths:
+  monitor_script: "/data/workspace/AIContentFlow/monitor/aicontentflow_monitor.py"
+  scorer_script: "/data/workspace/AIContentFlow/scorer/aicontentflow_scorer.py"
+  writer_script: "/data/workspace/AIContentFlow/writer/aicontentflow_writer.py"
+  logs_dir: "/data/workspace/AIContentFlow/logs"
+  outputs_dir: "/data/workspace/AIContentFlow/outputs"
+
+notifications:
+  enabled: true
+  platform: "企业微信"
+  notify_on:
+    - monitor_complete
+    - topic_selection_required
+    - content_ready
+    - publish_confirmation_required
+    - error
+
+legacy_compatibility:
+  keep_old_paths: true  # 保持旧路径的软链接
+  old_monitor_path: "/data/workspace/system/topic_selection/tools/auto_monitor.py"

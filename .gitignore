@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.log
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AIContentFlow specific
+logs/*.log
+outputs/*.json
+outputs/*.md
+*.tmp
+.cache/
+
+# Sensitive data
+.env
+.env.local
+config/secrets.yaml
+config/api_keys.yaml
+*.key
+*.pem
+
+# Test outputs
+tests/test_outputs/
+coverage/
+.coverage
+htmlcov/
+
+# Temporary files
+ai_trending_*.json
+ai_trending_*.md
+topic_monitor_report.json
+topic_monitor_report.md

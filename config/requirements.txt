@@ -1,0 +1,24 @@
+# AI内容生成系统依赖库
+# 生成时间: 2026-02-21
+
+# ===== 核心依赖 =====
+requests>=2.31.0          # HTTP请求库
+beautifulsoup4>=4.12.0    # HTML解析（用于GitHub Trending抓取）
+feedparser>=6.0.10        # RSS/Atom解析（用于TechCrunch、arXiv）
+
+# ===== 数据处理 =====
+# 如需添加其他数据处理库，在此添加
+
+# ===== 开发工具 =====
+# pytest>=7.4.0           # 单元测试框架（可选）
+# black>=23.0.0           # 代码格式化（可选）
+
+# ===== 说明 =====
+# 安装方式：
+#   pip install -r requirements.txt
+#
+# 更新方式：
+#   pip install -r requirements.txt --upgrade
+#
+# 导出当前环境：
+#   pip freeze > requirements_frozen.txt
