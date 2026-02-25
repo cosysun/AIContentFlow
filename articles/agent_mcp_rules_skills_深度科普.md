@@ -275,23 +275,6 @@ for step in plan:
 **优点**：效率高、支持并行  
 **缺点**：灵活性稍差
 ```
-
-**使用方式**：
-
-```bash
-# 1. API调用
-curl -X POST https://knot.woa.com/api/v1/agents/agui/{agent_id} \
-  -H "x-knot-token: YOUR_TOKEN" \
-  -d '{"input": {"message": "审查这个PR"}}'
-
-# 2. 嵌入网页
-<script src="https://knot.woa.com/embed.js"></script>
-<div id="agent-chat" data-agent-id="xxx"></div>
-
-# 3. 企业微信集成
-# 在群聊中@机器人即可调用Agent
-```
-
 ---
 
 <a name="chapter3"></a>
