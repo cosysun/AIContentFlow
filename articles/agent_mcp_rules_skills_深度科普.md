@@ -274,31 +274,6 @@ for step in plan:
 
 **优点**：效率高、支持并行  
 **缺点**：灵活性稍差
-
-### 2.4 Agent在Knot平台的实现
-
-**配置示例**：
-
-```json
-{
-  "agent_name": "代码审查助手",
-  "model": "deepseek-v3.1",
-  "system_prompt": "你是一个专业的代码审查专家...",
-  "tools": [
-    "github_mcp",      // 通过MCP接入
-    "code_analyzer"    // 自定义工具
-  ],
-  "skills": [
-    "code-review-workflow"  // 加载审查流程
-  ],
-  "rules": [
-    "coding-standards"      // 应用编码规范
-  ],
-  "memory": {
-    "type": "vector_db",
-    "max_tokens": 80000
-  }
-}
 ```
 
 **使用方式**：
@@ -418,7 +393,7 @@ MCP支持三种传输协议：
 | **SSE** (Server-Sent Events) | 远程HTTP服务 | `http://mcp.example.com/sse` |
 | **Streamable HTTP** | 高性能远程调用 | `http://mcp.example.com/stream` |
 
-**配置示例（Knot平台）**：
+**MCP配置示例**：
 
 ```json
 {
@@ -540,7 +515,6 @@ class JiraMCPServer(Server):
 
 # 立即可用于：
 ✅ Claude Desktop
-✅ Knot智能体
 ✅ 自研AI应用
 ✅ 任何支持MCP的平台
 ```
@@ -782,7 +756,7 @@ MCP协议的出现，为AI生态系统带来了革命性的变化。综上所述
 
 ### 4.4 Rules的技术实现
 
-#### 在Knot平台使用Rules
+#### Rules配置示例
 
 ```json
 {
@@ -791,12 +765,14 @@ MCP协议的出现，为AI生态系统带来了革命性的变化。综上所述
     {
       "id": "python_standards",
       "content": "[上述Python编码规范]",
-      "enabled": true
+      "enabled": true,
+      "priority": 2
     },
     {
       "id": "security_check",
       "content": "禁止生成包含硬编码密钥的代码",
-      "enabled": true
+      "enabled": true,
+      "priority": 1
     }
   ]
 }
@@ -1056,8 +1032,9 @@ description: 系统化执行竞品分析，输出专业分析报告
 3. 运营团队创建 "数据分析报告" Skill
 
 共享方式：
-- 上传到Knot Skills市场
-- 团队成员一键导入
+- 上传到GitHub等代码仓库
+- 发布到Skill市场（如Claude Skills）
+- 团队成员通过配置文件导入
 - 保证全公司的AI输出标准统一
 ```
 
@@ -1247,8 +1224,8 @@ users = User.query.filter(User.id.in_(user_ids)).all()  # ✅ 一次查询
 **使用方式**：
 
 ```bash
-# 1. 在Knot平台创建并上传Skill
-# 2. 在CodeBuddy中导入此Skill
+# 1. 创建Skill文件并配置
+# 2. 在AI应用中导入此Skill
 # 3. 对话时AI会自动识别并使用
 
 用户："帮我审查一下 user_service.py"
@@ -1784,21 +1761,23 @@ zip -r document-analysis.zip document-analysis.skill/
 - 使用很方便
 ```
 
-### 7.6 步骤4：在Knot平台配置
+### 7.6 步骤4：配置AI Agent
 
-**配置Agent**：
+**Agent配置示例**：
 
 ```json
 {
   "agent_name": "智能文档助手",
-  "model": "deepseek-v3.1",
+  "model": "claude-3.5-sonnet",
   "system_prompt": "你是一个专业的文档分析助手，擅长快速理解和总结技术文档。",
   
   "mcp_config": {
     "filesystem": {
-      "url": "http://localhost:8080/sse",
-      "transportType": "sse",
-      "timeout": 30
+      "command": "node",
+      "args": ["/path/to/filesystem-server/index.js"],
+      "env": {
+        "ALLOWED_DIRS": "/docs"
+      }
     }
   },
   
@@ -2275,7 +2254,7 @@ class SelfImprovingAgent:
 
 **初级（1-2周）**：
 1. ✅ 理解四大组件的概念
-2. ✅ 在Knot平台创建第一个Agent
+2. ✅ 使用Claude Desktop或类似平台创建第一个Agent
 3. ✅ 使用现成的MCP和Skills
 
 **中级（1个月）**：
@@ -2292,7 +2271,7 @@ class SelfImprovingAgent:
 
 **官方文档**：
 - Anthropic MCP规范：https://modelcontextprotocol.io
-- Knot平台使用指南：https://iwiki.woa.com/space/knot
+- Claude Desktop使用指南：https://claude.ai/desktop
 - Agent Skills标准：https://agentskills.io
 
 **开源项目**：
@@ -2302,8 +2281,8 @@ class SelfImprovingAgent:
 
 **社区资源**：
 - MCP开发者论坛
-- Knot用户交流群
 - AI Agent技术周报
+- Discord/Slack开发者社区
 
 ---
 
@@ -2312,7 +2291,7 @@ class SelfImprovingAgent:
 读完本文后，建议你：
 
 **今天就做**：
-1. 在Knot平台创建第一个Agent
+1. 使用Claude Desktop或类似平台创建第一个Agent
 2. 导入一个现成的Skill体验效果
 3. 编写一个简单的Rule测试约束能力
 
@@ -2338,7 +2317,7 @@ class SelfImprovingAgent:
 
 ---
 
-**关键词**：AI Agent, Model Context Protocol, MCP, Skills, Rules, 智能体, 工作流自动化, Knot平台, LLM应用开发
+**关键词**：AI Agent, Model Context Protocol, MCP, Skills, Rules, 智能体, 工作流自动化, LLM应用开发, Claude Desktop
 
 **本文字数**：约8500字  
 **阅读时长**：约25分钟  
