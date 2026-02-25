@@ -66,6 +66,40 @@ Rules约束 ← 保证 → 输出质量
 - 可复用的专业能力
 - 输出质量可控
 
+#### 📊 AI演进三阶段可视化
+
+```mermaid
+graph LR
+    subgraph Stage1["阶段1: 问答型AI (2022-2023)"]
+        A[用户] --> B[ChatGPT]
+        B --> C[回答]
+    end
+    
+    subgraph Stage2["阶段2: 工具增强 (2023-2024)"]
+        D[用户] --> E[AI + Function]
+        E --> F[调用API]
+        F --> G[返回结果]
+    end
+    
+    subgraph Stage3["阶段3: 自主智能体 (2024-现在)"]
+        H[用户意图] --> I[Agent规划]
+        I --> J[MCP协议]
+        J --> K[工具集]
+        I --> L[Skills]
+        I --> M[Rules]
+        K --> N[高质量输出]
+        L --> N
+        M --> N
+    end
+    
+    Stage1 -.演进.-> Stage2
+    Stage2 -.演进.-> Stage3
+    
+    style Stage1 fill:#e5e7eb
+    style Stage2 fill:#dbeafe
+    style Stage3 fill:#f3e8ff
+```
+
 ### 1.2 为什么需要Agent生态？
 
 **痛点1：传统AI应用的"信息孤岛"**
@@ -156,6 +190,41 @@ AI Agent ≈ 个人助理
 - 主动汇报进展
 ```
 
+#### 📊 Agent核心能力架构
+
+```mermaid
+graph TB
+    subgraph Agent["AI Agent 核心架构"]
+        LLM[大语言模型 LLM<br/>理解、推理、生成]
+        
+        subgraph Planning["规划能力"]
+            ReAct[ReAct思维链]
+            PlanExec[Plan-and-Execute]
+        end
+        
+        subgraph Tools["工具调用"]
+            MCP[MCP协议]
+            Multi[多工具组合]
+        end
+        
+        subgraph Memory["记忆系统"]
+            Short[短期记忆<br/>当前对话]
+            Long[长期记忆<br/>知识库]
+            Episodic[情景记忆<br/>历史任务]
+        end
+        
+        LLM --> Planning
+        Planning --> Tools
+        Tools --> Memory
+        Memory --> LLM
+    end
+    
+    style LLM fill:#c4b5fd
+    style Planning fill:#a78bfa
+    style Tools fill:#93c5fd
+    style Memory fill:#6ee7b7
+```
+
 ### 2.2 Agent的核心能力
 
 #### 能力1：自主规划（Planning）
@@ -178,6 +247,36 @@ Observation 2: 获取README、技术栈、Star趋势
 Thought 3: 整理成结构化报告
 Action 3: 生成Markdown表格 + 可视化图表
 Final Answer: [输出完整分析报告]
+```
+
+#### 📊 ReAct思维链工作流程
+
+```mermaid
+graph TD
+    Start([接收用户请求]) --> Thought1[Thought 1: 分析任务]
+    Thought1 --> Action1{需要工具?}
+    
+    Action1 -->|是| Tool1[Action 1: 调用工具]
+    Tool1 --> Obs1[Observation 1: 获得结果]
+    Obs1 --> Thought2[Thought 2: 继续思考]
+    
+    Thought2 --> Action2{任务完成?}
+    Action2 -->|否| Tool2[Action 2: 调用下一工具]
+    Tool2 --> Obs2[Observation 2: 获得结果]
+    Obs2 --> Thought3[Thought 3: 综合分析]
+    
+    Thought3 --> Action3{任务完成?}
+    Action3 -->|是| Answer[Final Answer: 输出答案]
+    Action3 -->|否| Tool1
+    
+    Action1 -->|否| Answer
+    
+    style Thought1 fill:#fef3c7
+    style Thought2 fill:#fef3c7
+    style Thought3 fill:#fef3c7
+    style Tool1 fill:#dbeafe
+    style Tool2 fill:#dbeafe
+    style Answer fill:#d1fae5
 ```
 
 #### 能力2：工具调用（Tool Use）
@@ -399,6 +498,34 @@ MCP支持三种传输协议：
 
 ### 3.3 MCP的数据流
 
+
+#### 📊 MCP完整交互流程
+
+```mermaid
+sequenceDiagram
+    participant A as AI Agent
+    participant C as MCP Client
+    participant S as MCP Server
+    
+    Note over A,S: 初始化阶段
+    A->>C: 1. 请求工具列表
+    C->>S: 2. tools/list (JSON-RPC)
+    S->>C: 3. 返回工具定义
+    C->>A: 4. 缓存工具列表
+    
+    Note over A,S: 执行阶段
+    A->>A: 5. LLM分析并决策
+    A->>C: 6. 调用search工具
+    C->>S: 7. tools/call + arguments
+    S->>S: 8. 执行实际操作
+    S->>C: 9. 返回结果数据
+    C->>A: 10. 传递结果
+    
+    Note over A,S: 响应阶段
+    A->>A: 11. 生成最终回答
+```
+
+
 **完整调用流程**：
 
 ```plaintext
@@ -484,6 +611,58 @@ MCP支持三种传输协议：
 
 ### 3.4 MCP的实战价值
 
+#### 📊 MCP生态架构全景
+
+```mermaid
+graph TB
+    subgraph Apps["AI应用层"]
+        Claude[Claude Desktop]
+        Custom[自研应用]
+    end
+    
+    subgraph Protocol["MCP协议层"]
+        Client[MCP Client<br/>统一接口]
+    end
+    
+    subgraph Servers["MCP Server层"]
+        GitHub[GitHub MCP<br/>代码管理]
+        Jira[Jira MCP<br/>项目管理]
+        DB[Database MCP<br/>数据查询]
+        FS[FileSystem MCP<br/>文件操作]
+        Custom2[自定义MCP<br/>企业内部工具]
+    end
+    
+    subgraph Resources["资源层"]
+        Git[Git仓库]
+        Tickets[工单系统]
+        Data[数据库]
+        Files[文件系统]
+        Internal[内部API]
+    end
+    
+    Claude --> Client
+    Custom --> Client
+    
+    Client --> GitHub
+    Client --> Jira
+    Client --> DB
+    Client --> FS
+    Client --> Custom2
+    
+    GitHub --> Git
+    Jira --> Tickets
+    DB --> Data
+    FS --> Files
+    Custom2 --> Internal
+    
+    style Apps fill:#c4b5fd
+    style Protocol fill:#93c5fd
+    style Servers fill:#6ee7b7
+    style Resources fill:#fcd34d
+```
+
+
+
 #### 价值1：一次开发，多处使用
 
 ```python
@@ -566,6 +745,31 @@ AI：[统一生成符合规范的代码]
 ```
 
 ### 4.2 Rules的本质
+
+#### 📊 Rules优先级层次
+
+```mermaid
+graph TD
+    User["🔴 用户临时指令<br/>最高优先级<br/>当前对话有效"]
+    Rules["🟡 Rules规范<br/>中优先级<br/>项目/团队规范"]
+    System["🟢 System Prompt<br/>低优先级<br/>Agent基础设定"]
+    Default["⚪ 模型默认行为<br/>最低优先级<br/>训练数据行为"]
+    
+    User --> Rules
+    Rules --> System
+    System --> Default
+    
+    User -.覆盖.-> Rules
+    User -.覆盖.-> System
+    Rules -.覆盖.-> System
+    
+    style User fill:#ef4444,color:#fff
+    style Rules fill:#f59e0b,color:#fff
+    style System fill:#10b981,color:#fff
+    style Default fill:#6b7280,color:#fff
+```
+
+
 
 **核心定义**：
 > Rules = 用户自定义的约束条件，用于规范AI的输出行为
@@ -786,6 +990,45 @@ Rules: "每个函数必须包含详细文档"
 
 ### 4.5 编写高质量Rules的技巧
 
+#### 📊 Rules分级体系
+
+```mermaid
+graph LR
+    subgraph P0["🔴 P0: 必须遵守"]
+        P0_1[类型注解]
+        P0_2[禁用eval]
+        P0_3[安全检查]
+    end
+    
+    subgraph P1["🟡 P1: 强烈建议"]
+        P1_1[函数长度≤50行]
+        P1_2[嵌套≤3层]
+        P1_3[必须有文档]
+    end
+    
+    subgraph P2["🟢 P2: 最佳实践"]
+        P2_1[列表推导]
+        P2_2[f-string]
+        P2_3[导入排序]
+    end
+    
+    Input[代码输入] --> P0
+    P0 -->|验证| P1
+    P1 -->|验证| P2
+    P2 --> Output[输出代码]
+    
+    P0 -.不通过.-> Reject[拒绝输出]
+    P1 -.不通过.-> Warning[警告提示]
+    
+    style P0 fill:#fee2e2
+    style P1 fill:#fef3c7
+    style P2 fill:#d1fae5
+    style Reject fill:#ef4444,color:#fff
+    style Warning fill:#f59e0b,color:#fff
+```
+
+
+
 #### 技巧1：使用正反示例
 
 ```markdown
@@ -879,6 +1122,40 @@ Skills ≈ 手机APP
 ```
 
 ### 5.2 Skills的核心价值
+
+#### 📊 Skills按需加载机制
+
+```mermaid
+graph TD
+    Start[用户请求] --> Analyze{Agent分析}
+    Analyze -->|需要专业流程| LoadSkill[动态加载Skill]
+    Analyze -->|简单任务| Direct[直接执行]
+    
+    LoadSkill --> Check{Skills库}
+    Check -->|找到匹配| Load1[加载竞品分析Skill]
+    Check -->|找到匹配| Load2[加载代码审查Skill]
+    Check -->|找到匹配| Load3[加载文档分析Skill]
+    
+    Load1 --> Execute[执行Skill流程]
+    Load2 --> Execute
+    Load3 --> Execute
+    Direct --> Execute
+    
+    Execute --> MCP[调用MCP工具]
+    Execute --> Rules[应用Rules]
+    
+    MCP --> Result[生成结果]
+    Rules --> Result
+    
+    Result --> Unload[卸载Skill]
+    Unload --> End[返回用户]
+    
+    style LoadSkill fill:#a78bfa
+    style Execute fill:#60a5fa
+    style Result fill:#34d399
+```
+
+
 
 #### 价值1：按需加载，不增加上下文负担
 
@@ -1218,7 +1495,115 @@ AI：[自动加载code-review skill] → [执行审查流程] → [生成报告]
 <a name="chapter6"></a>
 ## 六、四者协同：构建完整AI Agent生态
 
+#### 📊 Skills、MCP、Rules 三者协同
+
+```mermaid
+graph TB
+    Task[用户任务:<br/>审查Python代码] --> Agent
+    
+    Agent{AI Agent<br/>协调中枢}
+    
+    Agent -->|1. 识别需要| Skill[Skills:<br/>code-review]
+    Agent -->|2. 调用工具| MCP[MCP:<br/>read_file, grep_search]
+    Agent -->|3. 应用规范| Rules[Rules:<br/>Python编码标准]
+    
+    Skill -.提供.-> Workflow[审查流程:<br/>1. 扫描安全漏洞<br/>2. 检查性能问题<br/>3. 评估可维护性]
+    
+    MCP -.提供.-> Tools[工具能力:<br/>• 读取代码文件<br/>• 搜索危险模式<br/>• 分析复杂度]
+    
+    Rules -.提供.-> Standards[质量标准:<br/>• 必须有类型注解<br/>• 函数≤50行<br/>• 嵌套≤3层]
+    
+    Workflow --> Execute[执行审查]
+    Tools --> Execute
+    Standards --> Execute
+    
+    Execute --> Report[生成审查报告]
+    
+    style Agent fill:#c4b5fd
+    style Skill fill:#34d399
+    style MCP fill:#60a5fa
+    style Rules fill:#fbbf24
+    style Report fill:#d1fae5
+```
+
+
+
 ### 6.1 架构全景图
+
+#### 📊 四者协同架构全景
+
+```mermaid
+graph TB
+    User([👤 用户请求<br/>"检查这个项目的代码质量"])
+    
+    User --> Agent
+    
+    subgraph Agent["🧠 AI Agent - 决策中枢"]
+        LLM[LLM推理引擎]
+        Plan[规划执行流程]
+        Coord[协调各组件]
+        LLM --> Plan --> Coord
+    end
+    
+    Coord --> LoadSkill
+    Coord --> CallMCP
+    Coord --> ApplyRules
+    
+    subgraph Skills["🎯 Skills - 专业工作流"]
+        SkillLib[(Skills库)]
+        CodeReview[代码审查Skill]
+        DocAnalysis[文档分析Skill]
+        CompAnalysis[竞品分析Skill]
+        
+        SkillLib -.加载.-> CodeReview
+        SkillLib -.加载.-> DocAnalysis
+        SkillLib -.加载.-> CompAnalysis
+    end
+    
+    LoadSkill[动态加载Skill] --> CodeReview
+    
+    subgraph MCP["🔌 MCP - 工具生态"]
+        MCPClient[MCP Client]
+        
+        MCPClient --> GitHub[GitHub MCP]
+        MCPClient --> FileSystem[FileSystem MCP]
+        MCPClient --> Database[Database MCP]
+        
+        GitHub --> GitAPI[Git仓库]
+        FileSystem --> Files[本地文件]
+        Database --> Data[数据库]
+    end
+    
+    CallMCP[调用工具] --> MCPClient
+    
+    subgraph Rules["📋 Rules - 质量保证"]
+        RulesEngine[Rules引擎]
+        
+        RulesEngine --> P0[P0: 必须规则]
+        RulesEngine --> P1[P1: 推荐规则]
+        RulesEngine --> P2[P2: 风格规则]
+    end
+    
+    ApplyRules[应用规范] --> RulesEngine
+    
+    CodeReview -.指引.-> Execute[执行流程]
+    GitAPI -.数据.-> Execute
+    Files -.数据.-> Execute
+    P0 -.约束.-> Execute
+    P1 -.约束.-> Execute
+    
+    Execute --> Output
+    
+    Output([✅ 高质量输出<br/>• 专业流程<br/>• 外部数据<br/>• 符合规范])
+    
+    style Agent fill:#c4b5fd
+    style Skills fill:#34d399
+    style MCP fill:#60a5fa
+    style Rules fill:#fbbf24
+    style Output fill:#d1fae5
+```
+
+
 
 ```plaintext
                     ┌─────────────┐
@@ -1377,6 +1762,71 @@ class RulesEngine:
 
 ### 6.4 实战案例：自动化内容创作系统
 
+#### 📊 AIContentFlow完整工作流程
+
+```mermaid
+graph TB
+    Cron[⏰ 定时触发<br/>每天07:00]
+    
+    Cron --> Monitor
+    
+    subgraph Monitor["监控阶段"]
+        LoadM[加载: hot-topic-monitor Skill]
+        SearchHN[MCP: brave_search<br/>HackerNews]
+        SearchGH[MCP: github<br/>Trending]
+        SearchTC[MCP: web_search<br/>TechCrunch]
+        
+        LoadM --> SearchHN
+        LoadM --> SearchGH
+        LoadM --> SearchTC
+        
+        SearchHN --> Analyze
+        SearchGH --> Analyze
+        SearchTC --> Analyze
+        
+        Analyze[分析热度<br/>生成Top 5选题]
+        Analyze --> Notify1[notify: 推送选题]
+    end
+    
+    Notify1 --> Wait{用户选择}
+    
+    Wait -->|选择选题2| Create
+    Wait -->|等明天| Skip[记录状态<br/>明天重试]
+    
+    subgraph Create["创作阶段"]
+        LoadW[加载: eight-stage-writing Skill]
+        
+        Stage1[阶段1: 确认选题]
+        Stage2[阶段2: 深度调研<br/>MCP: 15+信息源]
+        Stage3[阶段3: 内容创作<br/>6000-8000字]
+        Stage4[阶段4: 三遍审校<br/>Rules: 降AI味]
+        Stage5[阶段5: 拟定标题<br/>20个方案]
+        Stage6[阶段6: 最终审阅]
+        Stage7[阶段7: 保存草稿]
+        Stage8[阶段8: 推广计划]
+        
+        LoadW --> Stage1
+        Stage1 --> Stage2
+        Stage2 --> Stage3
+        Stage3 --> Stage4
+        Stage4 --> Stage5
+        Stage5 --> Stage6
+        Stage6 --> Stage7
+        Stage7 --> Stage8
+        
+        Stage8 --> Notify2[notify: 创作完成]
+    end
+    
+    Notify2 --> End([✅ 完成])
+    Skip --> End
+    
+    style Monitor fill:#dbeafe
+    style Create fill:#d1fae5
+    style End fill:#34d399
+```
+
+
+
 **场景**：每天监控技术热点，自动生成高质量技术文章
 
 #### 系统架构
@@ -1534,6 +1984,54 @@ Agent（核心） + MCP（工具集） + Skills（工作流） + Rules（规范�
 **本节以"文档助手"为例**
 
 ### 7.2 需求分析
+
+#### 📊 从零搭建六步流程
+
+```mermaid
+graph TD
+    Start([🚀 开始项目]) --> Step1
+    
+    Step1[📋 步骤1: 需求分析<br/>• 确定应用场景<br/>• 拆解为Agent/MCP/Skills/Rules]
+    
+    Step1 --> Step2
+    
+    Step2[🔌 步骤2: 搭建MCP Server<br/>• 定义工具接口<br/>• 实现调用逻辑<br/>• 安全性检查]
+    
+    Step2 --> Step3
+    
+    Step3[📖 步骤3: 创建Skill<br/>• 编写工作流步骤<br/>• 添加异常处理<br/>• 提供示例模板]
+    
+    Step3 --> Step4
+    
+    Step4[📋 步骤4: 编写Rules<br/>• 定义质量规范<br/>• 分优先级P0/P1/P2<br/>• 正反示例]
+    
+    Step4 --> Step5
+    
+    Step5[🤖 步骤5: 配置Agent<br/>• 连接MCP Server<br/>• 导入Skills<br/>• 应用Rules]
+    
+    Step5 --> Step6
+    
+    Step6[🧪 步骤6: 测试验证<br/>• 功能测试<br/>• 异常处理<br/>• 性能优化]
+    
+    Step6 --> Decision{测试通过?}
+    
+    Decision -->|否| Debug[🔧 调试修复]
+    Debug --> Step5
+    
+    Decision -->|是| Deploy[🚀 部署上线<br/>• API/网页/企微]
+    
+    Deploy --> End([✅ 项目完成])
+    
+    style Step1 fill:#fef3c7
+    style Step2 fill:#dbeafe
+    style Step3 fill:#d1fae5
+    style Step4 fill:#fce7f3
+    style Step5 fill:#e0e7ff
+    style Step6 fill:#fde68a
+    style Deploy fill:#34d399
+```
+
+
 
 **目标**：
 创建一个AI助手，能够：
@@ -1833,6 +2331,55 @@ curl -X POST https://knot.woa.com/api/v1/agents/{agent_id} \
 
 <a name="chapter8"></a>
 ## 八、最佳实践与避坑指南
+
+#### 📊 常见问题决策树
+
+```mermaid
+graph TD
+    Problem{遇到问题}
+    
+    Problem -->|响应慢| Slow
+    Problem -->|输出错误| Wrong
+    Problem -->|工具失败| Fail
+    Problem -->|上下文溢出| Overflow
+    
+    subgraph Slow["🐌 响应慢"]
+        S1{Token多?}
+        S1 -->|是| S2[✅ 分页返回数据]
+        S1 -->|否| S3{工具慢?}
+        S3 -->|是| S4[✅ 并行调用工具]
+        S3 -->|否| S5[✅ 添加缓存]
+    end
+    
+    subgraph Wrong["❌ 输出错误"]
+        W1{Rules不明确?}
+        W1 -->|是| W2[✅ 增加正反示例]
+        W1 -->|否| W3{优先级冲突?}
+        W3 -->|是| W4[✅ 分级P0/P1/P2]
+    end
+    
+    subgraph Fail["💥 工具失败"]
+        F1{超时?}
+        F1 -->|是| F2[✅ 添加重试机制]
+        F1 -->|否| F3{权限不足?}
+        F3 -->|是| F4[✅ 配置权限]
+        F3 -->|否| F5[✅ 参数验证]
+    end
+    
+    subgraph Overflow["🔄 上下文溢出"]
+        O1{Skill太长?}
+        O1 -->|是| O2[✅ 拆分模块]
+        O1 -->|否| O3{历史记录多?}
+        O3 -->|是| O4[✅ 智能压缩]
+    end
+    
+    style Slow fill:#fef3c7
+    style Wrong fill:#fee2e2
+    style Fail fill:#fce7f3
+    style Overflow fill:#dbeafe
+```
+
+
 
 ### 8.1 Agent设计最佳实践
 
