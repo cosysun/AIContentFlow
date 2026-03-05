@@ -2,19 +2,24 @@
 """
 AIContentFlow - Notion 发布模块
 功能：
-  1. 将 Markdown 文章上传到 Notion 指定父页面下（作为子页面）
-  2. 上传后自动重建「📚 文章归档索引」页面
-     - 按日期分组，倒序排列
-     - 每篇文章使用 mention 链接（可点击跳转到子页面）
-     - 显示文章类型标签（公众号长文 / 小红书版 等）
+  1. 将 Markdown 文章上传到「📥 草稿箱」（发布前暂存）
+  2. 归档：将草稿箱中的文章移动到正式内容库，并更新索引
+  3. 上传后自动重建「📚 文章归档索引」页面
 
 用法：
+  # 上传到草稿箱（默认）
+  python3 notion_publisher.py --file /path/to/article.md
   python3 notion_publisher.py --file /path/to/article.md --type wechat
-  python3 notion_publisher.py --file /path/to/article.md --type xiaohongshu
-  python3 notion_publisher.py --rebuild-index   # 仅重建索引，不上传新文章
+
+  # 归档：将草稿箱文章移动到正式内容库（发布后执行）
+  python3 notion_publisher.py --archive <草稿页面ID>
+  python3 notion_publisher.py --archive <草稿页面ID> --type wechat
+
+  # 仅重建索引
+  python3 notion_publisher.py --rebuild-index
 
 作者：AIContentFlow
-版本：1.0.0
+版本：2.0.0
 """
 
 import os
@@ -32,8 +37,9 @@ from typing import List, Dict, Optional, Any
 # ============================================================================
 
 TOKEN = os.getenv("NOTION_TOKEN", "")
-PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")
-INDEX_PAGE_ID = os.getenv("NOTION_INDEX_PAGE_ID", "")
+PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")     # 正式内容库
+INDEX_PAGE_ID = os.getenv("NOTION_INDEX_PAGE_ID", "")       # 归档索引页
+DRAFTS_PAGE_ID = os.getenv("NOTION_DRAFTS_PAGE_ID", "")     # 草稿箱
 
 ARTICLE_TYPE_LABELS = {
     "wechat": "公众号长文",
@@ -111,7 +117,6 @@ def parse_inline(text: str) -> List[Dict]:
         return [{"type": "text", "text": {"content": ""}}]
 
     rich_text = []
-    # 先处理加粗
     parts = re.split(r"(\*\*[^*]+\*\*)", text)
     for part in parts:
         if part.startswith("**") and part.endswith("**") and len(part) > 4:
@@ -121,7 +126,6 @@ def parse_inline(text: str) -> List[Dict]:
                 "annotations": {"bold": True}
             })
         elif part:
-            # 再处理斜体
             sub_parts = re.split(r"(\*[^*]+\*)", part)
             for sp in sub_parts:
                 if sp.startswith("*") and sp.endswith("*") and len(sp) > 2:
@@ -144,7 +148,6 @@ def md_to_blocks(md_text: str, skip_first_title: bool = True) -> List[Dict]:
     lines = md_text.split("\n")
 
     for i, line in enumerate(lines):
-        # 跳过首行标题（作为页面 title 使用）
         if i == 0 and skip_first_title and line.startswith("# "):
             continue
 
@@ -177,7 +180,7 @@ def md_to_blocks(md_text: str, skip_first_title: bool = True) -> List[Dict]:
                 "numbered_list_item": {"rich_text": parse_inline(text)}
             })
         elif line.strip() == "":
-            pass  # 跳过空行
+            pass
         else:
             blocks.append({
                 "object": "block", "type": "paragraph",
@@ -205,13 +208,17 @@ def get_type_label(art_type: str) -> str:
 
 
 # ============================================================================
-# 上传文章到 Notion
+# 上传文章到草稿箱
 # ============================================================================
 
-def upload_article(file_path: str, article_type: str = "default") -> Optional[Dict]:
+def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[Dict]:
     """
-    将 Markdown 文件上传到 Notion，返回新建页面信息 {id, url, title, type, date}
+    将 Markdown 文件上传到「📥 草稿箱」，返回新建页面信息
     """
+    if not DRAFTS_PAGE_ID:
+        print("  ❌ 未配置 NOTION_DRAFTS_PAGE_ID，请检查 .env")
+        return None
+
     if not os.path.exists(file_path):
         print(f"  ❌ 文件不存在: {file_path}")
         return None
@@ -219,25 +226,21 @@ def upload_article(file_path: str, article_type: str = "default") -> Optional[Di
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 提取标题
     title_match = re.match(r"^# (.+)", content)
     title = title_match.group(1).strip() if title_match else os.path.basename(file_path).replace(".md", "")
 
     print(f"  📝 标题: {title}")
     print(f"  🏷️  类型: {get_type_label(article_type)}")
 
-    # 转换为 blocks
     blocks = md_to_blocks(content, skip_first_title=True)
     print(f"  📦 共 {len(blocks)} 个内容块")
 
-    # 分批：第一批随页面创建，其余追加
     batch_size = 100
     first_batch = blocks[:batch_size]
     rest_batches = [blocks[i:i + batch_size] for i in range(batch_size, len(blocks), batch_size)]
 
-    # 创建页面
     page_data = {
-        "parent": {"page_id": PARENT_PAGE_ID},
+        "parent": {"page_id": DRAFTS_PAGE_ID},
         "properties": {
             "title": {"title": [{"type": "text", "text": {"content": title}}]}
         },
@@ -252,19 +255,15 @@ def upload_article(file_path: str, article_type: str = "default") -> Optional[Di
     page_id = result["id"]
     page_url = result.get("url", f"https://notion.so/{page_id.replace('-', '')}")
 
-    # 追加剩余块
     for idx, batch in enumerate(rest_batches, 2):
         print(f"  📦 追加第 {idx} 批 ({len(batch)} 块)...")
         append_blocks(page_id, batch)
 
-    # 获取日期（从文件路径中提取，或使用今天）
     date_str = datetime.now().strftime("%Y-%m-%d")
-    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", file_path)
-    if date_match:
-        date_str = date_match.group(1)
 
-    print(f"  ✅ 上传成功！")
+    print(f"  ✅ 已上传到草稿箱！")
     print(f"  🔗 {page_url}")
+    print(f"  💡 发布后请执行归档：python3 notion_publisher.py --archive {page_id}")
 
     return {
         "id": page_id,
@@ -272,6 +271,121 @@ def upload_article(file_path: str, article_type: str = "default") -> Optional[Di
         "title": title,
         "type": article_type,
         "date": date_str,
+        "location": "drafts",
+    }
+
+
+# ============================================================================
+# 归档：草稿箱 → 正式内容库
+# ============================================================================
+
+def archive_draft(draft_page_id: str, article_type: str = None) -> Optional[Dict]:
+    """
+    将草稿箱中的页面移动到正式内容库（PARENT_PAGE_ID），并重建索引。
+    Notion API 不支持直接移动页面，采用「读取内容 → 在正式库创建 → 删除草稿」方案。
+    """
+    if not PARENT_PAGE_ID:
+        print("  ❌ 未配置 NOTION_PARENT_PAGE_ID，请检查 .env")
+        return None
+
+    print(f"  🔍 读取草稿页面: {draft_page_id}")
+
+    # 获取草稿页面信息
+    draft_detail = notion_request("GET", f"pages/{draft_page_id}")
+    if "id" not in draft_detail:
+        print(f"  ❌ 草稿页面不存在或无权访问: {draft_page_id}")
+        return None
+
+    # 提取标题
+    title_props = draft_detail.get("properties", {}).get("title", {}).get("title", [])
+    title = "".join([t.get("plain_text", "") for t in title_props]) or "未命名文章"
+
+    # 自动识别类型
+    if not article_type:
+        title_lower = title.lower()
+        article_type = "default"
+        for keyword, t in TYPE_KEYWORDS.items():
+            if keyword.lower() in title_lower:
+                article_type = t
+                break
+
+    print(f"  📝 标题: {title}")
+    print(f"  🏷️  类型: {get_type_label(article_type)}")
+
+    # 获取草稿内容块
+    print(f"  📦 读取草稿内容...")
+    draft_blocks = get_page_children(draft_page_id)
+
+    # 过滤掉不可复制的块类型（child_page、child_database 等）
+    copyable_types = {
+        "paragraph", "heading_1", "heading_2", "heading_3",
+        "bulleted_list_item", "numbered_list_item", "to_do",
+        "toggle", "quote", "callout", "divider", "code",
+        "image", "bookmark", "embed"
+    }
+    content_blocks = []
+    for block in draft_blocks:
+        btype = block.get("type")
+        if btype in copyable_types:
+            # 重新构建 block（去掉 id、created_time 等只读字段）
+            block_content = block.get(btype, {})
+            content_blocks.append({
+                "object": "block",
+                "type": btype,
+                btype: block_content
+            })
+
+    print(f"  📦 共 {len(content_blocks)} 个可复制内容块")
+
+    # 在正式内容库创建新页面
+    batch_size = 100
+    first_batch = content_blocks[:batch_size]
+    rest_batches = [content_blocks[i:i + batch_size] for i in range(batch_size, len(content_blocks), batch_size)]
+
+    page_data = {
+        "parent": {"page_id": PARENT_PAGE_ID},
+        "properties": {
+            "title": {"title": [{"type": "text", "text": {"content": title}}]}
+        },
+        "children": first_batch
+    }
+
+    print(f"  📤 在正式内容库创建页面...")
+    result = notion_request("POST", "pages", page_data)
+    if "id" not in result:
+        print(f"  ❌ 正式页面创建失败: {result.get('message', result)}")
+        return None
+
+    new_page_id = result["id"]
+    new_page_url = result.get("url", f"https://notion.so/{new_page_id.replace('-', '')}")
+
+    for idx, batch in enumerate(rest_batches, 2):
+        print(f"  📦 追加第 {idx} 批 ({len(batch)} 块)...")
+        append_blocks(new_page_id, batch)
+
+    # 删除草稿（归档后移除）
+    print(f"  🗑️  删除草稿箱中的草稿...")
+    del_result = notion_request("PATCH", f"pages/{draft_page_id}", {"archived": True})
+    if del_result.get("archived"):
+        print(f"  ✅ 草稿已归档删除")
+    else:
+        print(f"  ⚠️  草稿删除失败，请手动删除: {draft_page_id}")
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    created_time = draft_detail.get("created_time", "")
+    if created_time:
+        date_str = created_time[:10]
+
+    print(f"  ✅ 归档成功！")
+    print(f"  🔗 {new_page_url}")
+
+    return {
+        "id": new_page_id,
+        "url": new_page_url,
+        "title": title,
+        "type": article_type,
+        "date": date_str,
+        "location": "published",
     }
 
 
@@ -282,21 +396,19 @@ def upload_article(file_path: str, article_type: str = "default") -> Optional[Di
 def rebuild_index(new_article: Optional[Dict] = None):
     """
     重建 Notion 索引页：
-    - 扫描父页面下所有子页面
+    - 扫描正式内容库下所有子页面
     - 按日期分组，倒序排列
     - 每篇文章使用 mention 链接（可点击跳转）
     - 显示文章类型标签
     """
     print("\n🔄 正在重建归档索引页...")
 
-    # 1. 获取父页面下所有子页面
     children = get_page_children(PARENT_PAGE_ID)
     sub_pages = []
     for block in children:
         if block.get("type") == "child_page":
             page_id = block["id"]
             page_title = block["child_page"]["title"]
-            # 跳过索引页本身
             if page_id.replace("-", "") == INDEX_PAGE_ID.replace("-", ""):
                 continue
             sub_pages.append({
@@ -306,20 +418,12 @@ def rebuild_index(new_article: Optional[Dict] = None):
 
     print(f"  📋 发现 {len(sub_pages)} 个子页面（不含索引页本身）")
 
-    # 2. 为每个子页面补充日期和类型信息
-    # 优先从页面 ID 对应的创建时间获取，否则用今天
-    # 同时尝试从标题中识别类型
     enriched = []
     for page in sub_pages:
-        # 从 Notion API 获取页面创建时间
         page_detail = notion_request("GET", f"pages/{page['id']}")
         created_time = page_detail.get("created_time", "")
-        if created_time:
-            date_str = created_time[:10]  # YYYY-MM-DD
-        else:
-            date_str = datetime.now().strftime("%Y-%m-%d")
+        date_str = created_time[:10] if created_time else datetime.now().strftime("%Y-%m-%d")
 
-        # 识别类型
         art_type = "default"
         title_lower = page["title"].lower()
         for keyword, t in TYPE_KEYWORDS.items():
@@ -334,7 +438,6 @@ def rebuild_index(new_article: Optional[Dict] = None):
             "type": art_type,
         })
 
-    # 如果有新上传的文章，更新其类型信息
     if new_article:
         for p in enriched:
             if p["id"].replace("-", "") == new_article["id"].replace("-", ""):
@@ -342,24 +445,20 @@ def rebuild_index(new_article: Optional[Dict] = None):
                 p["date"] = new_article["date"]
                 break
 
-    # 3. 按日期分组，倒序
     by_date = defaultdict(list)
     for p in enriched:
         by_date[p["date"]].append(p)
 
-    # 4. 清空索引页现有内容
     existing_blocks = get_page_children(INDEX_PAGE_ID)
     print(f"  🗑️  清空旧内容（{len(existing_blocks)} 块）...")
     for block in existing_blocks:
         delete_block(block["id"])
 
-    # 5. 构建新的索引内容
     total = len(enriched)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     blocks = []
 
-    # Callout 说明
     blocks.append({
         "object": "block", "type": "callout",
         "callout": {
@@ -372,7 +471,6 @@ def rebuild_index(new_article: Optional[Dict] = None):
     })
     blocks.append({"object": "block", "type": "divider", "divider": {}})
 
-    # 按日期倒序输出
     for date_str in sorted(by_date.keys(), reverse=True):
         try:
             dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -380,13 +478,11 @@ def rebuild_index(new_article: Optional[Dict] = None):
         except ValueError:
             date_label = date_str
 
-        # 日期标题
         blocks.append({
             "object": "block", "type": "heading_2",
             "heading_2": {"rich_text": [{"type": "text", "text": {"content": f"📅 {date_label}"}}]}
         })
 
-        # 每篇文章：类型标签 + mention 链接
         for article in by_date[date_str]:
             type_label = get_type_label(article["type"])
             blocks.append({
@@ -411,7 +507,6 @@ def rebuild_index(new_article: Optional[Dict] = None):
 
     blocks.append({"object": "block", "type": "divider", "divider": {}})
 
-    # 6. 写入索引页
     append_blocks(INDEX_PAGE_ID, blocks)
 
     index_url = f"https://notion.so/{INDEX_PAGE_ID.replace('-', '')}"
@@ -426,48 +521,71 @@ def rebuild_index(new_article: Optional[Dict] = None):
 
 def main():
     parser = argparse.ArgumentParser(description="AIContentFlow - Notion 发布工具")
-    parser.add_argument("--file", "-f", help="要上传的 Markdown 文件路径")
+    parser.add_argument("--file", "-f", help="要上传到草稿箱的 Markdown 文件路径")
     parser.add_argument("--type", "-t", choices=list(ARTICLE_TYPE_LABELS.keys()),
                         default=None, help="文章类型（wechat/xiaohongshu/default）")
+    parser.add_argument("--archive", "-a", metavar="DRAFT_PAGE_ID",
+                        help="归档：将草稿箱页面移动到正式内容库（填草稿页面ID）")
     parser.add_argument("--rebuild-index", action="store_true",
                         help="仅重建索引页，不上传新文章")
     args = parser.parse_args()
 
-    if args.rebuild_index and not args.file:
-        # 仅重建索引
+    # 仅重建索引
+    if args.rebuild_index and not args.file and not args.archive:
         rebuild_index()
         return
 
+    # 归档流程
+    if args.archive:
+        print(f"\n{'='*60}")
+        print(f"  AIContentFlow - 归档草稿到正式内容库")
+        print(f"{'='*60}")
+        print(f"  草稿 ID: {args.archive}")
+        print()
+
+        print("📦 步骤 1/2：归档草稿...")
+        archived = archive_draft(args.archive, args.type)
+
+        if not archived:
+            print("❌ 归档失败，中止")
+            return
+
+        print("\n🔄 步骤 2/2：更新归档索引页...")
+        index_url = rebuild_index(archived)
+
+        print(f"\n{'='*60}")
+        print(f"  🎉 归档完成！")
+        print(f"  📝 正式文章: {archived['url']}")
+        print(f"  📚 索引: {index_url}")
+        print(f"{'='*60}\n")
+        return
+
+    # 上传到草稿箱
     if not args.file:
         parser.print_help()
         return
 
-    # 自动识别文章类型
     article_type = args.type or detect_article_type(args.file)
 
     print(f"\n{'='*60}")
-    print(f"  AIContentFlow - Notion 发布")
+    print(f"  AIContentFlow - 上传到草稿箱")
     print(f"{'='*60}")
     print(f"  文件: {args.file}")
     print(f"  类型: {get_type_label(article_type)}")
     print()
 
-    # 上传文章
-    print("📤 步骤 1/2：上传文章到 Notion...")
-    new_article = upload_article(args.file, article_type)
+    print("📤 上传文章到草稿箱...")
+    draft = upload_to_drafts(args.file, article_type)
 
-    if not new_article:
+    if not draft:
         print("❌ 上传失败，中止")
         return
 
-    # 重建索引
-    print("\n🔄 步骤 2/2：更新归档索引页...")
-    index_url = rebuild_index(new_article)
-
     print(f"\n{'='*60}")
-    print(f"  🎉 全部完成！")
-    print(f"  📝 文章: {new_article['url']}")
-    print(f"  📚 索引: {index_url}")
+    print(f"  🎉 已上传到草稿箱！")
+    print(f"  📝 草稿链接: {draft['url']}")
+    print(f"  💡 发布后归档命令：")
+    print(f"     python3 publisher/notion_publisher.py --archive {draft['id']}")
     print(f"{'='*60}\n")
 
 

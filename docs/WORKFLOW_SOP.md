@@ -1267,33 +1267,21 @@ mkdir -p /data/workspace/AIContentFlow/outputs/publish_$(date +%Y%m%d)
 - 改进建议：xxx
 ```
 
-#### Step 5: 归档
+#### Step 5: 归档到 Notion
 
-**归档到AI-Content-Archive**：
-```bash
-# 创建归档目录
-mkdir -p /data/workspace/AI-Content-Archive/2026/02/24-[文章标题]
+文章发布后，将草稿箱中的页面归档到正式内容库，并自动更新索引。
 
-# 复制所有文件
-cp -r /data/workspace/.draft/2026-02-24/* \
-      /data/workspace/AI-Content-Archive/2026/02/24-[文章标题]/
-
-# 添加发布日志
-cp /data/workspace/AIContentFlow/outputs/PUBLISH_LOG.md \
-   /data/workspace/AI-Content-Archive/2026/02/24-[文章标题]/
+**执行归档命令**：
+```
+python3 /data/workspace/AIContentFlow/publisher/notion_publisher.py --archive <草稿页面ID>
 ```
 
-**更新归档索引**（AI-Content-Archive/README.md）：
-```markdown
-## 2026年2月
+> 草稿页面 ID 在上传草稿时会自动输出，格式如：`31a62152-0e3f-816a-84c1-df32febd97b0`
 
-### 2026-02-24: [文章标题]
-- **类型**：科普/工具/编程/创业
-- **字数**：xxx字
-- **平台**：掘金、V2EX、知乎等9个平台
-- **数据**：总浏览xxx / 总点赞xx
-- **链接**：[./2026/02/24-文章标题/](./2026/02/24-文章标题/)
-```
+归档后系统会自动：
+1. 将草稿内容复制到正式内容库（`NOTION_PARENT_PAGE_ID`）
+2. 删除草稿箱中的草稿
+3. 重建归档索引页（`NOTION_INDEX_PAGE_ID`），按日期分组展示所有已发布文章
 
 #### Step 6: 最终通知
 
@@ -1304,7 +1292,7 @@ cp /data/workspace/AIContentFlow/outputs/PUBLISH_LOG.md \
 - ✅ 文章已发布到 9 个平台
 - ✅ 发布包已生成：`/data/workspace/AIContentFlow/outputs/publish_20260224/`
 - ✅ 发布日志已记录：`PUBLISH_LOG.md`
-- ✅ 已归档到：`/data/workspace/AI-Content-Archive/2026/02/24-[文章标题]/`
+- ✅ 已归档到 Notion 正式内容库，索引已更新
 
 ## 📋 后续任务
 - [ ] 1小时后检查各平台反馈
