@@ -25,12 +25,28 @@ AIContentFlow - Notion 发布模块
 import os
 import re
 import json
+import time
 import argparse
 import urllib.request
 import urllib.error
 from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Optional, Any
+from pathlib import Path
+
+try:
+    import requests as _requests
+    _USE_REQUESTS = True
+except ImportError:
+    _USE_REQUESTS = False
+
+# 自动加载 .env（支持从任意目录运行）
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).parent.parent / ".env"
+    load_dotenv(dotenv_path=_env_path)
+except ImportError:
+    pass
 
 # ============================================================================
 # 配置
@@ -59,22 +75,32 @@ TYPE_KEYWORDS = {
 # Notion API 工具函数
 # ============================================================================
 
-def notion_request(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
-    """发送 Notion API 请求"""
+def notion_request(method: str, endpoint: str, data: Optional[Dict] = None, retries: int = 3) -> Dict:
+    """发送 Notion API 请求（自动重试）"""
     url = f"https://api.notion.com/v1/{endpoint}"
-    body = json.dumps(data).encode("utf-8") if data else None
-    req = urllib.request.Request(url, data=body, method=method, headers={
+    headers = {
         "Authorization": f"Bearer {TOKEN}",
         "Notion-Version": "2022-06-28",
         "Content-Type": "application/json",
-    })
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err = json.loads(e.read())
-        print(f"  ❌ Notion API 错误 [{e.code}]: {err.get('message', err)}")
-        return err
+    }
+    for attempt in range(1, retries + 1):
+        try:
+            if _USE_REQUESTS:
+                resp = _requests.request(method, url, json=data, headers=headers, timeout=30)
+                return resp.json()
+            else:
+                body = json.dumps(data).encode("utf-8") if data else None
+                req = urllib.request.Request(url, data=body, method=method, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    return json.loads(resp.read())
+        except Exception as e:
+            if attempt < retries:
+                wait = attempt * 2
+                print(f"  ⚠️  第 {attempt} 次请求失败，{wait}s 后重试... ({e})")
+                time.sleep(wait)
+            else:
+                print(f"  ❌ 请求失败（已重试 {retries} 次）: {e}")
+                return {"error": str(e)}
 
 
 def get_page_children(page_id: str) -> List[Dict]:
