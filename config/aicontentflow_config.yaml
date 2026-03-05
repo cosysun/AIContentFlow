@@ -54,6 +54,22 @@ publisher:
   github_repo: "AI-Content-Archive"
   archive_path: "/data/workspace/AI-Content-Archive"
 
+notion:
+  token: "${NOTION_TOKEN}"                  # 请在 .env 中设置 NOTION_TOKEN
+  parent_page_id: "${NOTION_PARENT_PAGE_ID}"  # 请在 .env 中设置 NOTION_PARENT_PAGE_ID
+  index_page_id: "${NOTION_INDEX_PAGE_ID}"    # 请在 .env 中设置 NOTION_INDEX_PAGE_ID
+  # 索引规则：每次上传文章后，自动重建索引页，使用 mention 类型链接到子页面（可跳转）
+  index_rules:
+    auto_update_index: true          # 上传后自动更新索引
+    use_page_mention: true           # 使用 mention 链接（可跳转），而非纯文字
+    group_by_date: true              # 按日期分组
+    date_sort: "desc"                # 日期倒序（最新在前）
+    show_article_type: true          # 显示文章类型标签（公众号/小红书等）
+  article_types:
+    wechat: "公众号长文"
+    xiaohongshu: "小红书版"
+    default: "文章"
+
 paths:
   monitor_script: "/data/workspace/AIContentFlow/monitor/aicontentflow_monitor.py"
   scorer_script: "/data/workspace/AIContentFlow/scorer/aicontentflow_scorer.py"

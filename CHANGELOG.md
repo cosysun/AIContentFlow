@@ -1,5 +1,30 @@
 # AIContentFlow 变更日志
 
+## [1.1.0] - 2026-03-05
+
+### ✨ Notion 发布模块上线
+
+#### 新增 (Added)
+- ✅ `publisher/notion_publisher.py` - Notion 发布核心模块
+  - `upload_article(file, type)` - 上传 Markdown 文章为 Notion 子页面
+  - `rebuild_index()` - 自动重建「📚 文章归档索引」页面
+  - 支持命令行直接调用：`python3 notion_publisher.py --file xxx.md --type wechat`
+  - 支持仅重建索引：`python3 notion_publisher.py --rebuild-index`
+- ✅ 索引规则落地：
+  - 每篇文章使用 **mention 链接**（可点击跳转子页面），不再是纯文字列表
+  - 按**日期分组、倒序**排列（最新文章在前）
+  - 显示**文章类型标签**（`[公众号长文]` / `[小红书版]`）
+  - 每次上传后**自动触发索引重建**，无需手动维护
+- ✅ `config/aicontentflow_config.yaml` 新增 `notion` 配置段
+  - 含 token、parent_page_id、index_page_id
+  - 含 index_rules 规则配置项
+
+#### 规则 (Rules)
+- 每次上传文章到 Notion 后，必须调用 `rebuild_index()` 更新索引
+- 索引页永远使用 mention 类型链接，禁止退化为纯文字
+
+---
+
 ## [1.0.0] - 2026-02-21
 
 ### 🎉 项目重构
