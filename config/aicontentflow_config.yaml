@@ -51,8 +51,7 @@ writer:
 
 publisher:
   auto_publish: false  # 是否自动发布（需人工确认）
-  github_repo: "AI-Content-Archive"
-  archive_path: "/data/workspace/AI-Content-Archive"
+  # 注：文章不推送 GitHub 归档，仅发布到 Notion 及各平台
 
 notion:
   token: "${NOTION_TOKEN}"                  # 请在 .env 中设置 NOTION_TOKEN
