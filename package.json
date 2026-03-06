@@ -1,0 +1,28 @@
+{
+  "name": "aicontentflow",
+  "version": "1.0.0",
+  "description": "```ascii    ___    ____   ______            __             __  ______               / _ |  /  _/  / ____/___  ____  / /____  ____  / /_/ ____/___  __  __  / __ | _/ /   / /   / __ \\/ __ \\/ __/ _ \\/ __ \\/ __/ /_  / __ \\/ / / / / / / // /    / /___/ /_/ / / / / /_/  __/ / / / /_/ __/ / /_/ / /_/ /  /_/ /_/___/   \\____/\\____/_/ /_/\\__/\\___/_/ /_/\\__/_/    \\____/\\__,_/",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cosysun/AIContentFlow.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cosysun/AIContentFlow/issues"
+  },
+  "homepage": "https://github.com/cosysun/AIContentFlow#readme",
+  "dependencies": {
+    "juice": "^11.1.1",
+    "markdown-it": "^14.1.1"
+  }
+}

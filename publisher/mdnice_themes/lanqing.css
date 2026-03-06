@@ -1,0 +1,152 @@
+/* 兰青主题 - 青蓝色调，清新典雅 */
+
+/* 段落 */
+#nice p {
+  color: #3f3f3f !important;
+  font-size: 15px;
+  line-height: 1.9;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* H1 */
+#nice h1 {
+  color: #1a7a7a !important;
+  font-size: 22px;
+  border-bottom: 2px solid #1a7a7a;
+  padding-bottom: 6px;
+  margin-top: 28px;
+  margin-bottom: 14px;
+}
+
+/* H2 */
+#nice h2 {
+  color: #1a7a7a !important;
+  font-size: 19px;
+  border-left: 4px solid #1a7a7a;
+  padding-left: 10px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  background: linear-gradient(to right, #e6f4f4, transparent);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* H3 */
+#nice h3 {
+  color: #2a9090 !important;
+  font-size: 17px;
+  margin-top: 18px;
+  margin-bottom: 10px;
+}
+
+/* H4 */
+#nice h4 {
+  color: #2a9090 !important;
+  font-size: 15px;
+}
+
+/* 加粗 */
+#nice strong {
+  color: #1a7a7a !important;
+  font-weight: bold;
+}
+
+/* 斜体 */
+#nice em {
+  color: #2a9090 !important;
+  font-style: italic;
+}
+
+/* 加粗斜体 */
+#nice em strong,
+#nice strong em {
+  color: #1a7a7a !important;
+  font-weight: bold;
+  font-style: italic;
+}
+
+/* 行内代码 */
+#nice p code,
+#nice li code {
+  color: #1a7a7a !important;
+  background-color: #e6f4f4 !important;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+/* 代码块 */
+#nice pre {
+  background: #1b2b3a !important;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+#nice pre code {
+  color: #9ed9d9 !important;
+  background: transparent !important;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* 引用块 */
+#nice blockquote {
+  border-left: 4px solid #1a7a7a !important;
+  background: #e6f4f4;
+  padding: 10px 16px;
+  margin: 14px 0;
+  border-radius: 0 4px 4px 0;
+}
+
+#nice blockquote p {
+  color: #4a6a6a !important;
+  margin: 0;
+  padding: 0;
+}
+
+/* 列表 */
+#nice ul,
+#nice ol {
+  color: #3f3f3f !important;
+  padding-left: 22px;
+}
+
+#nice li section {
+  color: #3f3f3f !important;
+}
+
+/* 链接 */
+#nice a {
+  color: #1a7a7a !important;
+  border-bottom: 1px solid #1a7a7a;
+  font-weight: normal;
+}
+
+/* 分割线 */
+#nice hr {
+  border-top: 1px dashed #1a7a7a !important;
+  margin: 18px 0;
+}
+
+/* 表格 */
+#nice table tr th {
+  background-color: #1a7a7a !important;
+  color: #fff !important;
+  font-weight: bold;
+}
+
+#nice table tr:nth-child(2n) {
+  background-color: #e6f4f4 !important;
+}
+
+#nice table tr {
+  border-top: 1px solid #a8d0d0;
+}
+
+#nice table tr th,
+#nice table tr td {
+  border: 1px solid #a8d0d0;
+  color: #3f3f3f !important;
+}
