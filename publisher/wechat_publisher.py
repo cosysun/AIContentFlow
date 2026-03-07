@@ -20,7 +20,8 @@ AIContentFlow - 微信公众号发布模块
   python3 wechat_publisher.py --file /path/to/article.md --publish
 
 作者：AIContentFlow
-版本：1.0.0
+版本：1.0.1
+修复：微信API中文编码问题（ensure_ascii=False + UTF-8）
 """
 
 import os
@@ -128,7 +129,14 @@ def _wx_post(url: str, data: dict = None, files: dict = None) -> dict:
         if files:
             resp = _requests.post(url, files=files, timeout=30)
         else:
-            resp = _requests.post(url, json=data, timeout=30)
+            # 修复：中文编码问题，使用 ensure_ascii=False + UTF-8 编码
+            json_data = json.dumps(data, ensure_ascii=False).encode('utf-8')
+            resp = _requests.post(
+                url, 
+                data=json_data, 
+                headers={'Content-Type': 'application/json; charset=utf-8'},
+                timeout=30
+            )
         return resp.json()
     else:
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
