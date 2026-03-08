@@ -1,5 +1,74 @@
 # AIContentFlow 变更日志
 
+## [2026-03-08] - Notion 文档结构优化
+
+### notion_publisher.py 改造
+- **草稿箱按类型分目录**：新增 `NOTION_DRAFTS_WECHAT_PAGE_ID` / `NOTION_DRAFTS_XHS_PAGE_ID`，公众号和小红书草稿分别存入专属草稿箱；无专属配置时自动降级到通用草稿箱
+- **归档按类型分目录**：新增 `NOTION_ARCHIVE_WECHAT_PAGE_ID` / `NOTION_ARCHIVE_XHS_PAGE_ID`，归档时按文章类型写入对应子目录；无专属配置时降级到根目录
+- **小红书图片Prompt附加子页面**：`upload_to_drafts` 新增 `image_prompt_file` 参数，小红书文章上传时可同步将图片Prompt作为「🖼️ 配套图片 Prompts」子页面附在正文下
+- **索引页改为类型+日期两级分组**：`rebuild_index` 重构，先按「📰 公众号长文 / 🌸 小红书版 / 📄 文章」分类，每类内再按日期倒序，查阅更清晰
+- **命令行新增 `--image-prompt` / `-i` 参数**：上传小红书文章时可直接指定图片Prompt文件路径
+
+### .env.example 更新
+- 新增 4 个可选 Notion Page ID 配置项（草稿箱/正式库的公众号和小红书子目录）
+
+---
+
+## [2026-03-08] - 目录结构整理与优化
+
+### 结构调整
+- 新增 `bin/` 目录，将 4 个入口脚本统一归入（`run_full.sh` / `run_monitor.sh` / `run_writer.sh` / `run_xhs.sh`）
+- `SOP_小红书图片流程.md` 从根目录移入 `docs/`，文档统一管理
+- `outputs/` 新增 `research/` 子目录，5 个散落的 `research_*.md` 归入其中
+- `articles/` 新增 `assets/` 子目录，图片资源与文章素材分离
+- `monitor/data/` 历史数据按月归档至 `2026-02/` 和 `2026-03/`，根目录只保留最近3天
+
+---
+
+## [2026-03-08] - 小红书完整流程固化 & 集成到 AIContentFlow
+
+### 新增
+- `run_xhs.sh` — 小红书完整流程独立入口（一键执行）
+  ```
+  bash run_xhs.sh <文章路径.md>
+  # Step 1: 生成小红书正文（xhs_writer.py）
+  # Step 2: 生成图片 Prompts（xhs_image_pipeline.py）
+  # Step 3: 上传 Notion 草稿箱（notion_publisher.py）
+  ```
+- `tools/xhs_writer.py` — 小红书正文生成脚本（150-250字精简版）
+  - 输入原始文章 .md，自动调用 Claude 生成小红书正文
+  - 内置字数校验（150-250字）
+  - 输出保存到 `outputs/archive/YYYY-MM-DD/文章名_小红书正文.md`
+
+### 更新
+- `run_writer.sh` — 阶段8之后新增阶段8.5：小红书完整流程，引导调用 `run_xhs.sh`
+- `SOP_小红书图片流程.md` → 升级为「小红书内容生成 SOP（文字 + 图片）」
+  - 新增文字正文规范章节（核心：文字只留情绪和互动，内容交给图片说）
+  - 完整流程更新为：正文生成 → 图片 prompts → Notion → 出图 → 发布
+
+---
+
+
+
+
+### 📦 内容归档：小龙虾之父访谈深度解读
+
+#### 已发布文章
+- **标题**：《小龙虾之父》访谈深度解读
+- **发布平台**：微信公众号（已发布）
+- **归档路径**：`outputs/archive/2026-03-07/`
+
+#### 归档文件清单
+| 文件名 | 说明 |
+|--------|------|
+| 龙虾之父访谈深度解读_v2.md | 最终稿（Markdown） |
+| 龙虾之父访谈深度解读_v2_wechat.html | 公众号排版版本（已发布） |
+| 龙虾之父访谈_小红书版.md | 小红书改写版本 |
+| 龙虾之父访谈深度解读_cover_prompts.md | 封面图生成 Prompt |
+| 龙虾之父访谈深度解读.md | 初稿 |
+
+---
+
 ## [1.3.0] - 2026-03-06
 
 ### ✨ 写作工作流新增阶段7.5：自动上传 Notion 草稿箱

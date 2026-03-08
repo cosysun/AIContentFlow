@@ -53,15 +53,51 @@ except ImportError:
 # ============================================================================
 
 TOKEN = os.getenv("NOTION_TOKEN", "")
-PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")     # 正式内容库
-INDEX_PAGE_ID = os.getenv("NOTION_INDEX_PAGE_ID", "")       # 归档索引页
-DRAFTS_PAGE_ID = os.getenv("NOTION_DRAFTS_PAGE_ID", "")     # 草稿箱
+PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")         # 正式内容库（根目录）
+INDEX_PAGE_ID = os.getenv("NOTION_INDEX_PAGE_ID", "")           # 归档索引页
+DRAFTS_PAGE_ID = os.getenv("NOTION_DRAFTS_PAGE_ID", "")         # 草稿箱（通用）
+DRAFTS_WECHAT_PAGE_ID = os.getenv("NOTION_DRAFTS_WECHAT_PAGE_ID", "")       # 草稿箱 - 公众号
+DRAFTS_XHS_PAGE_ID = os.getenv("NOTION_DRAFTS_XHS_PAGE_ID", "")             # 草稿箱 - 小红书
+ARCHIVE_WECHAT_PAGE_ID = os.getenv("NOTION_ARCHIVE_WECHAT_PAGE_ID", "")     # 正式内容库 - 公众号长文
+ARCHIVE_XHS_PAGE_ID = os.getenv("NOTION_ARCHIVE_XHS_PAGE_ID", "")           # 正式内容库 - 小红书
 
 ARTICLE_TYPE_LABELS = {
     "wechat": "公众号长文",
     "xiaohongshu": "小红书版",
     "default": "文章",
 }
+
+# 各类型对应的草稿箱 Page ID（优先用专属箱，无则降级到通用草稿箱）
+DRAFTS_PAGE_MAP = {
+    "wechat": "NOTION_DRAFTS_WECHAT_PAGE_ID",
+    "xiaohongshu": "NOTION_DRAFTS_XHS_PAGE_ID",
+    "default": "NOTION_DRAFTS_PAGE_ID",
+}
+
+# 各类型对应的正式内容库 Page ID（优先用专属目录，无则降级到根目录）
+ARCHIVE_PAGE_MAP = {
+    "wechat": "NOTION_ARCHIVE_WECHAT_PAGE_ID",
+    "xiaohongshu": "NOTION_ARCHIVE_XHS_PAGE_ID",
+    "default": "NOTION_PARENT_PAGE_ID",
+}
+
+
+def get_drafts_page_id(article_type: str) -> str:
+    """根据文章类型获取对应草稿箱 Page ID，无专属时降级到通用草稿箱"""
+    env_key = DRAFTS_PAGE_MAP.get(article_type, DRAFTS_PAGE_MAP["default"])
+    page_id = os.getenv(env_key, "")
+    if not page_id:
+        page_id = DRAFTS_PAGE_ID  # 降级到通用草稿箱
+    return page_id
+
+
+def get_archive_page_id(article_type: str) -> str:
+    """根据文章类型获取对应正式内容库 Page ID，无专属时降级到根目录"""
+    env_key = ARCHIVE_PAGE_MAP.get(article_type, ARCHIVE_PAGE_MAP["default"])
+    page_id = os.getenv(env_key, "")
+    if not page_id:
+        page_id = PARENT_PAGE_ID  # 降级到根目录
+    return page_id
 
 # 文件名关键词 → 类型自动识别
 TYPE_KEYWORDS = {
@@ -237,12 +273,17 @@ def get_type_label(art_type: str) -> str:
 # 上传文章到草稿箱
 # ============================================================================
 
-def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[Dict]:
+def upload_to_drafts(file_path: str, article_type: str = "default",
+                     image_prompt_file: str = None) -> Optional[Dict]:
     """
-    将 Markdown 文件上传到「📥 草稿箱」，返回新建页面信息
+    将 Markdown 文件上传到「📥 草稿箱」，返回新建页面信息。
+    - 按文章类型自动选择对应草稿箱（公众号/小红书/通用）
+    - 若 article_type == "xiaohongshu" 且提供 image_prompt_file，
+      则将图片 Prompt 作为子页面附在正文页面下
     """
-    if not DRAFTS_PAGE_ID:
-        print("  ❌ 未配置 NOTION_DRAFTS_PAGE_ID，请检查 .env")
+    drafts_page_id = get_drafts_page_id(article_type)
+    if not drafts_page_id:
+        print(f"  ❌ 未配置草稿箱 Page ID（类型：{article_type}），请检查 .env")
         return None
 
     if not os.path.exists(file_path):
@@ -255,8 +296,15 @@ def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[
     title_match = re.match(r"^# (.+)", content)
     title = title_match.group(1).strip() if title_match else os.path.basename(file_path).replace(".md", "")
 
+    type_label = get_type_label(article_type)
+    drafts_label = {
+        "wechat": "草稿箱 - 公众号",
+        "xiaohongshu": "草稿箱 - 小红书",
+    }.get(article_type, "草稿箱")
+
     print(f"  📝 标题: {title}")
-    print(f"  🏷️  类型: {get_type_label(article_type)}")
+    print(f"  🏷️  类型: {type_label}")
+    print(f"  📥 目标: {drafts_label}")
 
     blocks = md_to_blocks(content, skip_first_title=True)
     print(f"  📦 共 {len(blocks)} 个内容块")
@@ -266,7 +314,7 @@ def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[
     rest_batches = [blocks[i:i + batch_size] for i in range(batch_size, len(blocks), batch_size)]
 
     page_data = {
-        "parent": {"page_id": DRAFTS_PAGE_ID},
+        "parent": {"page_id": drafts_page_id},
         "properties": {
             "title": {"title": [{"type": "text", "text": {"content": title}}]}
         },
@@ -285,9 +333,13 @@ def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[
         print(f"  📦 追加第 {idx} 批 ({len(batch)} 块)...")
         append_blocks(page_id, batch)
 
+    # 小红书：附加图片 Prompt 子页面
+    if article_type == "xiaohongshu" and image_prompt_file:
+        _attach_image_prompt_subpage(page_id, image_prompt_file)
+
     date_str = datetime.now().strftime("%Y-%m-%d")
 
-    print(f"  ✅ 已上传到草稿箱！")
+    print(f"  ✅ 已上传到{drafts_label}！")
     print(f"  🔗 {page_url}")
     print(f"  💡 发布后请执行归档：python3 notion_publisher.py --archive {page_id}")
 
@@ -301,19 +353,55 @@ def upload_to_drafts(file_path: str, article_type: str = "default") -> Optional[
     }
 
 
+def _attach_image_prompt_subpage(parent_page_id: str, prompt_file: str):
+    """
+    将图片 Prompt 文件作为子页面附在正文页面下（仅小红书使用）
+    """
+    if not os.path.exists(prompt_file):
+        print(f"  ⚠️  图片 Prompt 文件不存在，跳过: {prompt_file}")
+        return
+
+    with open(prompt_file, "r", encoding="utf-8") as f:
+        prompt_content = f.read()
+
+    print(f"  🖼️  附加图片 Prompt 子页面...")
+    prompt_blocks = md_to_blocks(prompt_content, skip_first_title=False)
+
+    batch_size = 100
+    first_batch = prompt_blocks[:batch_size]
+    rest_batches = [prompt_blocks[i:i + batch_size] for i in range(batch_size, len(prompt_blocks), batch_size)]
+
+    sub_page_data = {
+        "parent": {"page_id": parent_page_id},
+        "properties": {
+            "title": {"title": [{"type": "text", "text": {"content": "🖼️ 配套图片 Prompts"}}]}
+        },
+        "children": first_batch
+    }
+
+    sub_result = notion_request("POST", "pages", sub_page_data)
+    if "id" not in sub_result:
+        print(f"  ⚠️  图片 Prompt 子页面创建失败: {sub_result.get('message', sub_result)}")
+        return
+
+    sub_page_id = sub_result["id"]
+    for idx, batch in enumerate(rest_batches, 2):
+        append_blocks(sub_page_id, batch)
+
+    sub_url = sub_result.get("url", f"https://notion.so/{sub_page_id.replace('-', '')}")
+    print(f"  ✅ 图片 Prompt 子页面已附加: {sub_url}")
+
+
 # ============================================================================
 # 归档：草稿箱 → 正式内容库
 # ============================================================================
 
 def archive_draft(draft_page_id: str, article_type: str = None) -> Optional[Dict]:
     """
-    将草稿箱中的页面移动到正式内容库（PARENT_PAGE_ID），并重建索引。
-    Notion API 不支持直接移动页面，采用「读取内容 → 在正式库创建 → 删除草稿」方案。
+    将草稿箱中的页面移动到正式内容库，并重建索引。
+    - 按文章类型归档到对应子目录（公众号/小红书/通用根目录）
+    - Notion API 不支持直接移动页面，采用「读取内容 → 在正式库创建 → 删除草稿」方案。
     """
-    if not PARENT_PAGE_ID:
-        print("  ❌ 未配置 NOTION_PARENT_PAGE_ID，请检查 .env")
-        return None
-
     print(f"  🔍 读取草稿页面: {draft_page_id}")
 
     # 获取草稿页面信息
@@ -335,8 +423,20 @@ def archive_draft(draft_page_id: str, article_type: str = None) -> Optional[Dict
                 article_type = t
                 break
 
+    # 根据类型选择归档目录
+    archive_page_id = get_archive_page_id(article_type)
+    if not archive_page_id:
+        print(f"  ❌ 未配置正式内容库 Page ID（类型：{article_type}），请检查 .env")
+        return None
+
+    archive_label = {
+        "wechat": "正式内容库 - 公众号长文",
+        "xiaohongshu": "正式内容库 - 小红书",
+    }.get(article_type, "正式内容库")
+
     print(f"  📝 标题: {title}")
     print(f"  🏷️  类型: {get_type_label(article_type)}")
+    print(f"  📂 归档目录: {archive_label}")
 
     # 获取草稿内容块
     print(f"  📦 读取草稿内容...")
@@ -363,13 +463,13 @@ def archive_draft(draft_page_id: str, article_type: str = None) -> Optional[Dict
 
     print(f"  📦 共 {len(content_blocks)} 个可复制内容块")
 
-    # 在正式内容库创建新页面
+    # 在正式内容库（对应类型子目录）创建新页面
     batch_size = 100
     first_batch = content_blocks[:batch_size]
     rest_batches = [content_blocks[i:i + batch_size] for i in range(batch_size, len(content_blocks), batch_size)]
 
     page_data = {
-        "parent": {"page_id": PARENT_PAGE_ID},
+        "parent": {"page_id": archive_page_id},
         "properties": {
             "title": {"title": [{"type": "text", "text": {"content": title}}]}
         },
@@ -422,40 +522,65 @@ def archive_draft(draft_page_id: str, article_type: str = None) -> Optional[Dict
 def rebuild_index(new_article: Optional[Dict] = None):
     """
     重建 Notion 索引页：
-    - 扫描正式内容库下所有子页面
-    - 按日期分组，倒序排列
+    - 扫描正式内容库（根目录 + 公众号/小红书子目录）下所有子页面
+    - 按「类型 → 日期」两级分组，倒序排列
     - 每篇文章使用 mention 链接（可点击跳转）
-    - 显示文章类型标签
     """
     print("\n🔄 正在重建归档索引页...")
 
-    children = get_page_children(PARENT_PAGE_ID)
-    sub_pages = []
-    for block in children:
-        if block.get("type") == "child_page":
-            page_id = block["id"]
-            page_title = block["child_page"]["title"]
-            if page_id.replace("-", "") == INDEX_PAGE_ID.replace("-", ""):
-                continue
-            sub_pages.append({
-                "id": page_id,
-                "title": page_title,
-            })
+    # 收集所有子页面（根目录 + 各类型专属目录），并记录来源目录类型
+    wechat_dir_id = os.getenv("NOTION_ARCHIVE_WECHAT_PAGE_ID", "").replace("-", "")
+    xhs_dir_id = os.getenv("NOTION_ARCHIVE_XHS_PAGE_ID", "").replace("-", "")
 
-    print(f"  📋 发现 {len(sub_pages)} 个子页面（不含索引页本身）")
+    # scan_pages: [(page_id, forced_type)]
+    # forced_type=None 表示靠标题关键词识别，否则强制使用指定类型
+    scan_pages = [(PARENT_PAGE_ID, None)]
+    if wechat_dir_id:
+        scan_pages.append((os.getenv("NOTION_ARCHIVE_WECHAT_PAGE_ID", ""), "wechat"))
+    if xhs_dir_id:
+        scan_pages.append((os.getenv("NOTION_ARCHIVE_XHS_PAGE_ID", ""), "xiaohongshu"))
+
+    all_sub_pages = []
+    seen_ids = set()
+    for scan_pid, forced_type in scan_pages:
+        if not scan_pid:
+            continue
+        children = get_page_children(scan_pid)
+        for block in children:
+            if block.get("type") == "child_page":
+                page_id = block["id"]
+                page_id_clean = page_id.replace("-", "")
+                if page_id_clean == INDEX_PAGE_ID.replace("-", ""):
+                    continue
+                # 跳过专属子目录本身（它们也是 child_page）
+                if page_id_clean in {wechat_dir_id, xhs_dir_id}:
+                    continue
+                if page_id not in seen_ids:
+                    seen_ids.add(page_id)
+                    all_sub_pages.append({
+                        "id": page_id,
+                        "title": block["child_page"]["title"],
+                        "forced_type": forced_type,  # 来自专属子目录则强制类型
+                    })
+
+    print(f"  📋 发现 {len(all_sub_pages)} 个子页面（不含索引页/目录页）")
 
     enriched = []
-    for page in sub_pages:
+    for page in all_sub_pages:
         page_detail = notion_request("GET", f"pages/{page['id']}")
         created_time = page_detail.get("created_time", "")
         date_str = created_time[:10] if created_time else datetime.now().strftime("%Y-%m-%d")
 
-        art_type = "default"
-        title_lower = page["title"].lower()
-        for keyword, t in TYPE_KEYWORDS.items():
-            if keyword.lower() in title_lower:
-                art_type = t
-                break
+        # 优先使用来源目录强制指定的类型，否则靠标题关键词识别
+        if page.get("forced_type"):
+            art_type = page["forced_type"]
+        else:
+            art_type = "default"
+            title_lower = page["title"].lower()
+            for keyword, t in TYPE_KEYWORDS.items():
+                if keyword.lower() in title_lower:
+                    art_type = t
+                    break
 
         enriched.append({
             "id": page["id"],
@@ -471,10 +596,12 @@ def rebuild_index(new_article: Optional[Dict] = None):
                 p["date"] = new_article["date"]
                 break
 
-    by_date = defaultdict(list)
+    # 按类型分组
+    by_type = defaultdict(list)
     for p in enriched:
-        by_date[p["date"]].append(p)
+        by_type[p["type"]].append(p)
 
+    # 清空旧内容
     existing_blocks = get_page_children(INDEX_PAGE_ID)
     print(f"  🗑️  清空旧内容（{len(existing_blocks)} 块）...")
     for block in existing_blocks:
@@ -484,12 +611,11 @@ def rebuild_index(new_article: Optional[Dict] = None):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     blocks = []
-
     blocks.append({
         "object": "block", "type": "callout",
         "callout": {
             "rich_text": [{"type": "text", "text": {
-                "content": f"按日期目录整理，每日生成的文章自动归档。共 {total} 篇文章。最后更新：{now_str}"
+                "content": f"按类型 + 日期目录整理，文章自动归档。共 {total} 篇文章。最后更新：{now_str}"
             }}],
             "icon": {"type": "emoji", "emoji": "📚"},
             "color": "blue_background"
@@ -497,46 +623,64 @@ def rebuild_index(new_article: Optional[Dict] = None):
     })
     blocks.append({"object": "block", "type": "divider", "divider": {}})
 
-    for date_str in sorted(by_date.keys(), reverse=True):
-        try:
-            dt = datetime.strptime(date_str, "%Y-%m-%d")
-            date_label = dt.strftime("%Y年%m月%d日")
-        except ValueError:
-            date_label = date_str
+    # 按类型顺序输出（公众号 → 小红书 → 其他）
+    type_order = ["wechat", "xiaohongshu", "default"]
+    type_emojis = {"wechat": "📰", "xiaohongshu": "🌸", "default": "📄"}
+
+    for art_type in type_order:
+        articles = by_type.get(art_type, [])
+        if not articles:
+            continue
+
+        type_label = get_type_label(art_type)
+        type_emoji = type_emojis.get(art_type, "📄")
 
         blocks.append({
             "object": "block", "type": "heading_2",
-            "heading_2": {"rich_text": [{"type": "text", "text": {"content": f"📅 {date_label}"}}]}
+            "heading_2": {"rich_text": [{"type": "text", "text": {
+                "content": f"{type_emoji} {type_label}（{len(articles)} 篇）"
+            }}]}
         })
 
-        for article in by_date[date_str]:
-            type_label = get_type_label(article["type"])
+        # 按日期倒序分组
+        by_date = defaultdict(list)
+        for p in articles:
+            by_date[p["date"]].append(p)
+
+        for date_str in sorted(by_date.keys(), reverse=True):
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                date_label = dt.strftime("%Y年%m月%d日")
+            except ValueError:
+                date_label = date_str
+
             blocks.append({
-                "object": "block", "type": "bulleted_list_item",
-                "bulleted_list_item": {
-                    "rich_text": [
-                        {
-                            "type": "text",
-                            "text": {"content": f"[{type_label}]  "},
-                            "annotations": {"bold": True, "color": "blue"}
-                        },
-                        {
-                            "type": "mention",
-                            "mention": {
-                                "type": "page",
-                                "page": {"id": article["id"]}
-                            }
-                        }
-                    ]
-                }
+                "object": "block", "type": "heading_3",
+                "heading_3": {"rich_text": [{"type": "text", "text": {"content": f"📅 {date_label}"}}]}
             })
 
-    blocks.append({"object": "block", "type": "divider", "divider": {}})
+            for article in by_date[date_str]:
+                blocks.append({
+                    "object": "block", "type": "bulleted_list_item",
+                    "bulleted_list_item": {
+                        "rich_text": [
+                            {
+                                "type": "mention",
+                                "mention": {
+                                    "type": "page",
+                                    "page": {"id": article["id"]}
+                                }
+                            }
+                        ]
+                    }
+                })
+
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
 
     append_blocks(INDEX_PAGE_ID, blocks)
 
     index_url = f"https://notion.so/{INDEX_PAGE_ID.replace('-', '')}"
-    print(f"  ✅ 索引页重建完成！共 {total} 篇文章")
+    print(f"  ✅ 索引页重建完成！共 {total} 篇文章（公众号 {len(by_type.get('wechat', []))} 篇 / 小红书 {len(by_type.get('xiaohongshu', []))} 篇）")
     print(f"  🔗 {index_url}")
     return index_url
 
@@ -550,6 +694,8 @@ def main():
     parser.add_argument("--file", "-f", help="要上传到草稿箱的 Markdown 文件路径")
     parser.add_argument("--type", "-t", choices=list(ARTICLE_TYPE_LABELS.keys()),
                         default=None, help="文章类型（wechat/xiaohongshu/default）")
+    parser.add_argument("--image-prompt", "-i", metavar="PROMPT_FILE",
+                        help="小红书图片 Prompt 文件路径（将作为子页面附在正文下）")
     parser.add_argument("--archive", "-a", metavar="DRAFT_PAGE_ID",
                         help="归档：将草稿箱页面移动到正式内容库（填草稿页面ID）")
     parser.add_argument("--rebuild-index", action="store_true",
@@ -598,10 +744,12 @@ def main():
     print(f"{'='*60}")
     print(f"  文件: {args.file}")
     print(f"  类型: {get_type_label(article_type)}")
+    if args.image_prompt:
+        print(f"  图片Prompt: {args.image_prompt}")
     print()
 
     print("📤 上传文章到草稿箱...")
-    draft = upload_to_drafts(args.file, article_type)
+    draft = upload_to_drafts(args.file, article_type, image_prompt_file=args.image_prompt)
 
     if not draft:
         print("❌ 上传失败，中止")

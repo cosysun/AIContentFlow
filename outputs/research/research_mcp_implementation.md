@@ -1,0 +1,1 @@
+❌ 搜索失败: 422 Client Error: Unprocessable Entity for url: https://api.search.brave.com/res/v1/web/search?q=Claude+MCP+server+implementation+tutorial&count=10&search_lang=zh-CN&country=CN&safesearch=moderate&text_decorations=False&spellcheck=True
