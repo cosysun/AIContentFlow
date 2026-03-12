@@ -28,25 +28,25 @@ cd /data/workspace/AIContentFlow/monitor
 python3 aicontentflow_monitor.py
 
 # 检查输出文件
-if [ -f "/data/workspace/AIContentFlow/outputs/topic_monitor_report.md" ]; then
+if [ -f "/data/workspace/AIContentFlow/monitor/topic_monitor_report.md" ]; then
     echo -e "${GREEN}[2/3] 报告生成成功！${NC}"
     echo ""
     echo -e "${BLUE}📊 报告位置：${NC}"
-    echo "   /data/workspace/AIContentFlow/outputs/topic_monitor_report.md"
+    echo "   /data/workspace/AIContentFlow/monitor/topic_monitor_report.md"
     echo ""
     
     # 显示报告预览（前30行）
     echo -e "${GREEN}[3/3] 报告预览：${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    head -n 30 /data/workspace/AIContentFlow/outputs/topic_monitor_report.md
+    head -n 30 /data/workspace/AIContentFlow/monitor/topic_monitor_report.md
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
     # 下一步提示
     echo -e "${YELLOW}📝 下一步操作：${NC}"
-    echo "   1. 查看完整报告: cat /data/workspace/AIContentFlow/outputs/topic_monitor_report.md"
-    echo "   2. 确认选题后运行: bash /data/workspace/AIContentFlow/run_writer.sh [主题名称]"
-    echo "   3. 或运行完整流程: bash /data/workspace/AIContentFlow/run_full.sh"
+    echo "   1. 查看完整报告: cat /data/workspace/AIContentFlow/monitor/topic_monitor_report.md"
+    echo "   2. 确认选题后运行: bash /data/workspace/AIContentFlow/bin/run_writer.sh [主题名称]"
+    echo "   3. 或运行完整流程: bash /data/workspace/AIContentFlow/bin/run_full.sh"
     echo ""
 else
     echo -e "${YELLOW}[错误] 报告生成失败，请检查日志${NC}"

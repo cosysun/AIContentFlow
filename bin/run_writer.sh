@@ -1,138 +1,142 @@
 #!/bin/bash
 
-# AIContentFlow - 内容生成脚本
-# 用途：根据选定主题生成专业内容
+# AIContentFlow - 内容创作启动脚本
+# 用途：根据选定主题保存选题，输出创作上下文，供 AI 工作流使用
+# 用法：bash bin/run_writer.sh "主题名称" [article_type]
+#   article_type 可选：科普|工具|编程|创业（默认自动判断）
 
 set -e
 
-# 颜色输出
+# ── 颜色 ──────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 TOPIC="$1"
+ARTICLE_TYPE="${2:-}"
+PROJECT_DIR="/data/workspace/AIContentFlow"
+DRAFT_BASE="/data/workspace/.draft"
+TODAY=$(date +%Y-%m-%d)
+DRAFT_DIR="${DRAFT_BASE}/${TODAY}"
+TOPIC_FILE="/data/workspace/.daily_topic_choice.txt"
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  AIContentFlow - 内容生成系统${NC}"
+echo -e "${BLUE}  AIContentFlow - 内容创作系统 v2.0${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# 如果没有提供主题参数，尝试从报告中读取
+# ── 检查主题参数 ───────────────────────────────────────────────────
 if [ -z "$TOPIC" ]; then
-    echo -e "${YELLOW}[提示] 未指定主题，将从监控报告中选择评分最高的主题${NC}"
-    
-    # 检查报告是否存在
-    if [ ! -f "/data/workspace/AIContentFlow/outputs/topic_monitor_report.json" ]; then
-        echo -e "${RED}[错误] 未找到监控报告，请先运行: bash run_monitor.sh${NC}"
+    # 尝试从监控报告中读取第一条推荐选题
+    REPORT="${PROJECT_DIR}/monitor/topic_monitor_report.md"
+    if [ -f "$REPORT" ]; then
+        echo -e "${YELLOW}[提示] 未指定主题，尝试从监控报告中读取推荐选题...${NC}"
+        # 提取第一个推荐标题（格式：### 1. 标题 或 **标题**）
+        TOPIC=$(grep -m1 -oP '(?<=\*\*)[^\*]+(?=\*\*)' "$REPORT" 2>/dev/null | head -1)
+        if [ -z "$TOPIC" ]; then
+            echo -e "${RED}[错误] 无法自动提取选题，请手动指定主题${NC}"
+            echo ""
+            echo -e "${YELLOW}用法：${NC}"
+            echo "   bash bin/run_writer.sh \"主题名称\""
+            echo "   bash bin/run_writer.sh \"主题名称\" 工具"
+            echo ""
+            echo -e "${YELLOW}示例：${NC}"
+            echo "   bash bin/run_writer.sh \"Claude 3.5新功能深度解析\" 科普"
+            echo "   bash bin/run_writer.sh \"用 Cursor 构建全栈应用\" 编程"
+            exit 1
+        fi
+        echo -e "${GREEN}[自动选题] ${TOPIC}${NC}"
+    else
+        echo -e "${RED}[错误] 请先运行热点监控：bash bin/run_monitor.sh${NC}"
+        echo ""
+        echo -e "${YELLOW}或直接指定主题：${NC}"
+        echo "   bash bin/run_writer.sh \"主题名称\""
         exit 1
     fi
-    
-    # 从JSON中提取评分最高的主题（这里需要jq工具或Python脚本）
-    # 简化版：直接提示用户
-    echo -e "${RED}[错误] 请指定主题名称${NC}"
-    echo ""
-    echo -e "${YELLOW}用法：${NC}"
-    echo "   bash run_writer.sh \"主题名称\""
-    echo ""
-    echo -e "${YELLOW}示例：${NC}"
-    echo "   bash run_writer.sh \"Claude 3.5新功能深度解析\""
-    exit 1
 fi
 
-echo -e "${GREEN}[1/9] 确认选题：${NC}${TOPIC}"
-echo ""
+# ── 判断文章类型和字数 ─────────────────────────────────────────────
+if [ -z "$ARTICLE_TYPE" ]; then
+    # 根据关键词自动判断
+    if echo "$TOPIC" | grep -qiE "教程|实战|代码|开发|工程|编程|python|javascript|rust|go语言|架构"; then
+        ARTICLE_TYPE="编程"
+    elif echo "$TOPIC" | grep -qiE "工具|插件|扩展|框架|库|SDK|API|平台|产品"; then
+        ARTICLE_TYPE="工具"
+    elif echo "$TOPIC" | grep -qiE "创业|商业|融资|市场|增长|出海|变现|赛道"; then
+        ARTICLE_TYPE="创业"
+    else
+        ARTICLE_TYPE="科普"
+    fi
+fi
 
-# 保存选题到临时文件
-echo "$TOPIC" > /data/workspace/.daily_topic_choice.txt
-echo -e "${GREEN}[2/9] 选题已保存${NC}"
-echo ""
+case "$ARTICLE_TYPE" in
+    科普) TARGET_WORDS="3000-5000" ;;
+    工具) TARGET_WORDS="4000-6000" ;;
+    编程) TARGET_WORDS="6000-8000" ;;
+    创业) TARGET_WORDS="8000-10000" ;;
+    *) TARGET_WORDS="3000-5000"; ARTICLE_TYPE="科普" ;;
+esac
 
-# 调用AI执行完整创作流程
-echo -e "${GREEN}[3/9] 启动八段式创作工作流...${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+# ── 创建草稿目录 ───────────────────────────────────────────────────
+echo -e "${GREEN}[1/4] 创建草稿目录...${NC}"
+mkdir -p "$DRAFT_DIR"
+echo -e "  ${GREEN}✓ ${DRAFT_DIR}${NC}"
+
+# ── 保存选题 ──────────────────────────────────────────────────────
+echo -e "${GREEN}[2/4] 保存选题...${NC}"
+echo "$TOPIC" > "$TOPIC_FILE"
+echo -e "  ${GREEN}✓ 选题已保存到 ${TOPIC_FILE}${NC}"
+
+# ── 生成 context.json ─────────────────────────────────────────────
+echo -e "${GREEN}[3/4] 初始化进度上下文...${NC}"
+CONTEXT_FILE="${DRAFT_DIR}/context.json"
+cat > "$CONTEXT_FILE" << EOF
+{
+  "topic": "${TOPIC}",
+  "selected_title": "",
+  "current_stage": 1,
+  "completed_stages": [],
+  "article_type": "${ARTICLE_TYPE}",
+  "target_words": "${TARGET_WORDS}",
+  "draft_dir": "${DRAFT_DIR}",
+  "last_updated": "$(date -Iseconds)"
+}
+EOF
+echo -e "  ${GREEN}✓ context.json 已创建${NC}"
+
+# ── 输出创作摘要 ──────────────────────────────────────────────────
+echo -e "${GREEN}[4/4] 创作配置就绪${NC}"
 echo ""
-echo -e "${BLUE}📝 创作流程说明：${NC}"
-echo "   阶段1: 确认选题和创作目标"
-echo "   阶段2: 深度调研（15+信息源）"
-echo "   阶段3: 内容创作（3000-10000字）"
-echo "   阶段4: 三遍审校（事实核查+降AI味+排版润色）"
-echo "   阶段5: 拟定20个标题方案"
-echo "   阶段6: 最终审阅（数据真实性校验+可操作性验证+质量评分）"
-echo "   阶段7: 暂存到临时目录"
-echo "   阶段7.5: 自动上传到 Notion 草稿箱（等待用户确认）"
-echo "   阶段7.6: 用户确认后 → mdnice排版 → 自动上传微信公众号草稿箱"
-echo "   阶段8: 生成发布推广计划（公众号/小红书/抖音脚本，不推送 GitHub 归档）"
-echo "   阶段9: 生成文章封面设计 Prompt（适配公众号/小红书/抖音三端）"
-echo "   阶段10: 发布前确认"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}  📝 创作任务摘要${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "  主题：${YELLOW}${TOPIC}${NC}"
+echo -e "  类型：${YELLOW}${ARTICLE_TYPE}类${NC}"
+echo -e "  字数：${YELLOW}${TARGET_WORDS} 字${NC}"
+echo -e "  草稿：${YELLOW}${DRAFT_DIR}/${NC}"
 echo ""
-echo -e "${RED}⚠️  请注意：创作过程需要约15-30分钟${NC}"
-echo -e "${RED}⚠️  请在对话中向AI发送以下消息：${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}  📋 十段式写作工作流${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "请执行内容创作任务，主题为：${TOPIC}"
+echo "  阶段1：确认选题和创作目标"
+echo "  阶段2：深度调研（≥15 个信息源）"
+echo "  阶段3：内容创作（${TARGET_WORDS} 字）"
+echo "  阶段4：第一遍审校 - 事实核查"
+echo "  阶段5：第二遍审校 - 降AI味"
+echo "  阶段6：第三遍审校 - 排版润色"
+echo "  阶段7：标题创作（20 个方案）"
+echo "  阶段8：最终审阅与暂存"
+echo "  阶段9：全方位质检（十维度评分）"
+echo "  阶段10：发布推广计划"
 echo ""
-echo "使用八段式专业写作工作流完整执行："
-echo "- 阶段1：确认选题和创作目标"
-echo "- 阶段2：深度调研（15+信息源）"
-echo "- 阶段3：内容创作（根据内容线字数：科普3000-5000/工具4000-6000/编程6000-8000/创业8000-10000字）"
-echo "- 阶段4：三遍审校（事实核查+降AI味+排版润色）"
-echo "- 阶段5：拟定20个标题方案"
-echo "- 阶段6：最终审阅（严格执行以下三类校验，并输出结构化评分卡）"
-echo "  【A. 数据真实性校验】"
-echo "  - 列出文中所有具体数字/数据（如准确率、参数量、增长率等）"
-echo "  - 每条数据标注来源（论文/官方公告/权威媒体），无法溯源的数据必须删除或标注\"待验证\""
-echo "  - 时效性检查：超过6个月的数据需标注\"截至XXXX年XX月\""
-echo "  【B. 可操作性验证】"
-echo "  - 检查文中所有操作步骤是否清晰可执行"
-echo "  - 验证提到的工具/链接/方法是否当前有效"
-echo "  - 标出读者可能遇到障碍的步骤，补充说明或替代方案"
-echo "  【C. 文章质量评分卡】（必须输出以下格式）"
-echo "  ┌─────────────────────────────────────────┐"
-echo "  │  📊 文章质量评分卡                       │"
-echo "  │  信息密度：   ★★★★☆ (X/5)               │"
-echo "  │  数据支撑：   ★★★☆☆ (X/5)               │"
-echo "  │  可读性：     ★★★★★ (X/5)               │"
-echo "  │  可操作性：   ★★★☆☆ (X/5)               │"
-echo "  │  AI味指数：   ★☆☆☆☆ (越低越好)           │"
-echo "  │  综合建议：   ✅可发布 / ⚠️需修改 / ❌重写  │"
-echo "  └─────────────────────────────────────────┘"
-echo "- 阶段7：暂存到临时目录 /data/workspace/.draft/$(date +%Y-%m-%d)/"
-echo "- 阶段7.5：自动上传到 Notion 草稿箱"
-echo "  文章保存到本地后，立即执行以下命令将公众号版本上传到 Notion 草稿箱："
-echo "  cd /data/workspace/AIContentFlow && python3 publisher/notion_publisher.py --file <草稿文件路径>"
-echo "  上传成功后输出草稿链接，上传失败时打印错误信息但不中断后续流程。"
-echo "  上传完成后，使用 notify 工具通知用户，标题为「📥 草稿已上传 Notion - 请确认后发布公众号」，"
-echo "  消息内容包含：Notion草稿链接、文章标题、字数、以及提示用户回复「发布公众号」继续下一步。"
-echo "- 阶段7.6：用户确认发布后 → mdnice排版 + 上传微信公众号草稿箱"
-echo "  收到用户「发布公众号」指令后，执行以下步骤："
-echo "  步骤1 - mdnice排版（输出微信HTML）："
-echo "  cd /data/workspace/AIContentFlow && python3 publisher/wechat_publisher.py --file <草稿文件路径> --format-only"
-echo "  步骤2 - 上传到微信公众号草稿箱："
-echo "  cd /data/workspace/AIContentFlow && python3 publisher/wechat_publisher.py --file <草稿文件路径>"
-echo "  上传成功后提示用户前往公众号后台 → 草稿箱 预览并发布。"
-echo "  上传失败时打印详细错误信息，提示用户检查 WECHAT_APPID / WECHAT_APPSECRET 配置。"
-echo "- 阶段8：生成发布推广计划（包含：公众号长文、小红书版本、抖音/视频号分镜脚本，不推送 GitHub 归档）"
-echo "- 阶段8.5：小红书完整流程（正文 + 图片 + Notion）"
-echo "  文章保存到本地后，执行以下命令启动小红书完整流程："
-echo "  bash /data/workspace/AIContentFlow/run_xhs.sh <草稿文件路径>"
-echo "  该命令将依次执行："
-echo "    Step 1 - 生成小红书正文（150-250字，精简版，只留情绪和互动）"
-echo "    Step 2 - 生成 8 张图片 Prompts（Notion 手绘风，3:4 竖版）"
-echo "    Step 3 - 上传 Notion 草稿箱，返回草稿链接"
-echo "  完成后在 Notion 中复制 Prompt 给 nano banana pro 出图，图01先出，图02-08带--ref图01.png"
-echo "- 阶段9：生成文章封面设计 Prompt，必须包含以下三个版本："
-echo "  【公众号封面】900×500px，横版，主题色+标题文字突出，风格：专业科技感"
-echo "  【小红书封面】1080×1440px，竖版，颜色鲜艳吸睛，含封面标题+副标题+作者标签"
-echo "  【抖音/视频号封面】1080×1920px，竖版16:9，大字报风格，强对比色，标题不超过12字"
-echo "  每个版本的 Prompt 需包含：构图描述、主视觉元素、配色方案、字体风格、情绪氛围，"
-echo "  格式为可直接投喂给 Midjourney / DALL-E / Stable Diffusion 的英文 Prompt，"
-echo "  同时附上中文说明便于理解，封面 Prompt 保存到草稿目录同名文件 _cover_prompts.md"
+echo -e "${YELLOW}⚠️  预计耗时：20-40 分钟${NC}"
 echo ""
-echo "完成后使用notify工具通知我，标题为\"📝 内容已完成 - 请确认发布\"。"
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}✅ 准备就绪！AI 将自动启动十段式写作工作流。${NC}"
 echo ""
-echo -e "${YELLOW}💡 提示：请将上述消息复制发送给AI助手${NC}"
+echo -e "  草稿保存路径：${YELLOW}${DRAFT_DIR}/${NC}"
+echo "  context.json：已初始化（阶段1待开始）"
+echo ""
